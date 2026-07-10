@@ -75,7 +75,7 @@ export default function LoginPage() {
             </Link>
             <h1 className="text-2xl font-bold">Welcome back</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Sign in to your ScriptShield account
+              Sign in to your luau.uwu account
             </p>
           </div>
 
@@ -150,7 +150,7 @@ export default function LoginPage() {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
             <Shield className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-4">ScriptShield</h2>
+          <h2 className="text-2xl font-bold mb-4">luau.uwu</h2>
           <p className="text-muted-foreground">
             Professional script protection and key management for Roblox
             developers.

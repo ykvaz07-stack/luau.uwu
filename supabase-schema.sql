@@ -1,4 +1,4 @@
--- ScriptShield Database Schema
+-- luau.uwu Database Schema
 -- Run this in Supabase SQL Editor
 
 -- Projects table

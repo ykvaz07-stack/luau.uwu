@@ -117,24 +117,32 @@ export async function POST(request: Request) {
     }
 
     // Handle HWID
-    if (body.hwid) {
-      if (keyData.identifier && keyData.identifier !== body.hwid) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "HWID mismatch. Key is locked to a different machine.",
-          },
-          { status: 403 }
-        );
-      }
+    if (!body.hwid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "HWID is required. Provide your hardware ID.",
+        },
+        { status: 403 }
+      );
+    }
 
-      // Auto-assign HWID if not set
-      if (!keyData.identifier) {
-        await supabase
-          .from("keys")
-          .update({ identifier: body.hwid })
-          .eq("id", keyData.id);
-      }
+    if (keyData.identifier && keyData.identifier !== body.hwid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "HWID mismatch. Key is locked to a different machine.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Auto-assign HWID on first use
+    if (!keyData.identifier) {
+      await supabase
+        .from("keys")
+        .update({ identifier: body.hwid })
+        .eq("id", keyData.id);
     }
 
     // Increment execution count
@@ -174,6 +182,6 @@ export async function GET() {
   return NextResponse.json({
     version: "v1",
     status: "operational",
-    message: "ScriptShield Validation API",
+    message: "luau.uwu Validation API",
   });
 }

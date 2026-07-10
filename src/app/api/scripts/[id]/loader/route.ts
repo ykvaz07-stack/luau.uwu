@@ -72,7 +72,7 @@ if not ok then
   return error("[luau.uwu] Failed to contact server: " .. tostring(result), 0)
 end
 
-if result:find("ScriptShield:") then
+if result:find("luau.uwu:") then
   return error(result, 0)
 end
 

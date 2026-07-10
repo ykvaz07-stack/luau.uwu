@@ -91,7 +91,7 @@ export async function GET(
 
   if (!supabaseUrl || !supabaseServiceKey) {
     return new NextResponse(
-      "-- ScriptShield: Server configuration error",
+      "-- luau.uwu: Server configuration error",
       { status: 500, headers: { "Content-Type": "text/plain" } }
     );
   }
@@ -106,7 +106,7 @@ export async function GET(
 
   if (scriptError || !script) {
     return new NextResponse(
-      "-- ScriptShield: Script not found",
+      "-- luau.uwu: Script not found",
       { status: 404, headers: { "Content-Type": "text/plain" } }
     );
   }
@@ -126,7 +126,7 @@ export async function GET(
   if (requiresKey) {
     if (!key) {
       return new NextResponse(
-        "-- ScriptShield: This script requires a key\n-- Get your key from the script provider\nerror('ScriptShield: Key required. Contact the script provider for a key.')",
+        "-- luau.uwu: This script requires a key\n-- Get your key from the script provider\nerror('luau.uwu: Key required. Contact the script provider for a key.')",
         { status: 403, headers: { "Content-Type": "text/plain" } }
       );
     }
@@ -140,33 +140,40 @@ export async function GET(
 
     if (keyError || !keyData) {
       return new NextResponse(
-        "-- ScriptShield: Invalid key\nerror('ScriptShield: The key you provided is invalid.')",
+        "-- luau.uwu: Invalid key\nerror('luau.uwu: The key you provided is invalid.')",
         { status: 403, headers: { "Content-Type": "text/plain" } }
       );
     }
 
     if (keyData.banned) {
       return new NextResponse(
-        `-- ScriptShield: Key banned\n-- Reason: ${keyData.ban_reason || "No reason provided"}\nerror('ScriptShield: This key has been banned.')`,
+        `-- luau.uwu: Key banned\n-- Reason: ${keyData.ban_reason || "No reason provided"}\nerror('luau.uwu: This key has been banned.')`,
         { status: 403, headers: { "Content-Type": "text/plain" } }
       );
     }
 
     if (keyData.auth_expire !== -1 && keyData.auth_expire < Math.floor(Date.now() / 1000)) {
       return new NextResponse(
-        "-- ScriptShield: Key expired\nerror('ScriptShield: This key has expired. Please renew.')",
+        "-- luau.uwu: Key expired\nerror('luau.uwu: This key has expired. Please renew.')",
         { status: 403, headers: { "Content-Type": "text/plain" } }
       );
     }
 
-    if (hwid && keyData.identifier && keyData.identifier !== hwid) {
+    if (!hwid) {
       return new NextResponse(
-        "-- ScriptShield: HWID mismatch\nerror('ScriptShield: This key is locked to a different machine.')",
+        "-- luau.uwu: HWID required\nerror('luau.uwu: Could not detect your hardware ID. Use an updated executor.')",
         { status: 403, headers: { "Content-Type": "text/plain" } }
       );
     }
 
-    if (hwid && !keyData.identifier) {
+    if (keyData.identifier && keyData.identifier !== hwid) {
+      return new NextResponse(
+        "-- luau.uwu: HWID mismatch\nerror('luau.uwu: This key is locked to a different machine.')",
+        { status: 403, headers: { "Content-Type": "text/plain" } }
+      );
+    }
+
+    if (!keyData.identifier) {
       await supabase
         .from("keys")
         .update({ identifier: hwid })

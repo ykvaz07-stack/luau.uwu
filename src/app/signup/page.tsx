@@ -247,7 +247,7 @@ export default function SignupPage() {
       <div className="hidden lg:flex flex-1 items-center justify-center bg-muted/30 border-l border-border/50">
         <div className="max-w-md text-center px-8">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6"><Shield className="h-8 w-8 text-primary" /></div>
-          <h2 className="text-2xl font-bold mb-4">ScriptShield</h2>
+          <h2 className="text-2xl font-bold mb-4">luau.uwu</h2>
           <p className="text-muted-foreground">Professional script protection and key management for Roblox developers.</p>
         </div>
       </div>
