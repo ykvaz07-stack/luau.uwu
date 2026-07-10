@@ -189,12 +189,13 @@ export async function GET(
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "";
     const executorFp = request.headers.get("syn-fingerprint") || request.headers.get("sw-fingerprint") || request.headers.get("krnl-hwid") || "";
+    const { data: project } = await supabase.from("projects").select("user_id").eq("id", script.project_id).single();
     await supabase.from("ip_logs").insert({
-      user_id: keyData?.id,
+      user_id: project?.user_id || null,
       ip_address: ip,
       user_agent: userAgent,
       action: "script_load",
-      metadata: { script_id: scriptId, key_id: keyData?.id, executor_fp: executorFp },
+      metadata: { script_id: scriptId, key_id: keyData?.id || null, executor_fp: executorFp },
     });
   } catch {}
 

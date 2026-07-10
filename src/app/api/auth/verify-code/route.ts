@@ -64,18 +64,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: createError.message }, { status: 400 });
     }
 
-    // Log IP on signup
-    const userAgent = request.headers.get("user-agent") || "unknown";
-
-    await supabase.from("ip_logs").insert({
-      user_id: authData.user.id,
-      ip_address: ip,
-      user_agent: userAgent,
-      action: "signup",
-    });
+    // Log IP on signup (never break signup if this fails)
+    try {
+      const userAgent = request.headers.get("user-agent") || "unknown";
+      await supabase.from("ip_logs").insert({
+        user_id: authData.user.id,
+        ip_address: ip,
+        user_agent: userAgent,
+        action: "signup",
+      });
+    } catch {}
 
     // Clean up code
-    await supabase.from("verification_codes").delete().eq("email", email);
+    try {
+      await supabase.from("verification_codes").delete().eq("email", email);
+    } catch {}
 
     return NextResponse.json({ success: true });
   } catch (err) {
