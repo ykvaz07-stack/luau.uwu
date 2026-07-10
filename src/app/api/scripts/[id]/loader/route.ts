@@ -59,7 +59,10 @@ if type(key) ~= "string" or #key < 5 then
 end
 
 local hwid = getHwid()
-local loadUrl = "${domain}/api/scripts/${id}/load?key=" .. key .. "&hwid=" .. hwid
+local loadUrl = "${domain}/api/scripts/${id}/load?key=" .. key
+if hwid and #hwid > 0 then
+  loadUrl = loadUrl .. "&hwid=" .. hwid
+end
 
 local ok, result = pcall(function()
   return game:HttpGet(loadUrl)

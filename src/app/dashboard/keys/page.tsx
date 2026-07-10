@@ -38,17 +38,14 @@ export default function KeysPage() {
     }
 
     const [keysRes, scriptsRes] = await Promise.all([
-      supabase
-        .from("keys")
-        .select("*")
-        .order("created_at", { ascending: false }),
+      fetch("/api/keys").then((r) => r.json()),
       supabase
         .from("scripts")
         .select("*")
         .order("created_at", { ascending: false }),
     ]);
 
-    setKeys(keysRes.data ?? []);
+    setKeys(keysRes.keys ?? []);
     setScripts(scriptsRes.data ?? []);
     if (scriptsRes.data && scriptsRes.data.length > 0) {
       setSelectedScript(scriptsRes.data[0].id);
