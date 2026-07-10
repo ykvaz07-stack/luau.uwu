@@ -220,7 +220,7 @@ export default function ScriptsPage() {
     const base = window.location.origin;
     if (script.requires_key) {
       navigator.clipboard.writeText(
-        `loadstring(game:HttpGet("${base}/api/scripts/${script.id}/load?key=YOUR_KEY"))()`
+        `loadstring(game:HttpGet("${base}/api/scripts/${script.id}/loader?key=YOUR_KEY"))()`
       );
     } else {
       navigator.clipboard.writeText(

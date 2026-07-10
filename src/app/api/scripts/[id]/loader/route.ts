@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const keyParam = searchParams.get("key");
 
   const domain = process.env.NEXT_PUBLIC_SITE_URL || "https://luau.uwu";
 
@@ -15,6 +17,8 @@ export async function GET(
  ( ^.^ )
   > ^ <
 ]]
+
+${keyParam ? `script_key = "${keyParam}"` : ""}
 
 local function getHwid()
   -- Method 1: gethwid() — many executors provide this directly
