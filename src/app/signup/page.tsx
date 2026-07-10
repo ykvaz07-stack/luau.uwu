@@ -61,13 +61,13 @@ export default function SignupPage() {
 
     // No email service — use Supabase built-in confirmation
     try {
-      const { createClient } = await import("@/lib/supabase/client");
+      const { createClient, getSiteUrl } = await import("@/lib/supabase/client");
       const supabase = createClient();
       if (!supabase) { setError("Auth not configured"); setLoading(false); return; }
       const { error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: `${getSiteUrl()}/auth/callback` },
       });
       if (authError) { setError(authError.message); setLoading(false); return; }
       setSentTo(email);
