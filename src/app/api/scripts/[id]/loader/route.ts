@@ -17,40 +17,91 @@ export async function GET(
 ]]
 
 local function getHwid()
-  local ok, result = pcall(function()
-    -- Method 1: Request to echo-headers to extract fingerprint headers
+  -- Method 1: gethwid() — many executors provide this directly
+  local ok, result = pcall(gethwid)
+  if ok and type(result) == "string" and #result > 0 then
+    return result
+  end
+
+  -- Method 2: syn.crypt.generate / crypt.generate / syn_crypt_generate
+  ok, result = pcall(function()
+    if syn and syn.crypt and syn.crypt.generate then
+      return syn.crypt.generate("hwid")
+    elseif crypt and crypt.generate then
+      return crypt.generate("hwid")
+    elseif syn_crypt_generate then
+      return syn_crypt_generate("hwid")
+    end
+  end)
+  if ok and type(result) == "string" and #result > 0 then
+    return result
+  end
+
+  -- Method 3: syn.crypt.custom.hash — used by some Synapse-based executors
+  ok, result = pcall(function()
+    if syn and syn.crypt and syn.crypt.custom and syn.crypt.custom.hash then
+      return syn.crypt.custom.hash("hwid")
+    end
+  end)
+  if ok and type(result) == "string" and #result > 0 then
+    return result
+  end
+
+  -- Method 4: Executor HTTP request to echo-headers (syn.request / http_request / request)
+  -- This is the ONLY way to capture fingerprint headers since executors
+  -- inject them into their own HTTP stack, NOT into game:HttpGet
+  ok, result = pcall(function()
+    local req = (syn and syn.request) or http_request or request or (http and http.request)
+    if not req then return nil end
+    local resp = req({
+      Url = "${domain}/api/echo-headers",
+      Method = "GET",
+    })
+    if resp and resp.Body then
+      local decoded = game:GetService("HttpService"):JSONDecode(resp.Body)
+      if decoded and decoded.headers then
+        for h, v in pairs(decoded.headers) do
+          if string.match(string.lower(h), ".-fingerprint$") or
+             h == "Krnl-HWID" or
+             h == "Proto-User-Identifier" or
+             h == "Exploit-Guid" then
+            return v
+          end
+        end
+      end
+    end
+  end)
+  if ok and type(result) == "string" and #result > 0 then
+    return result
+  end
+
+  -- Method 5: game:HttpGet echo-headers (fallback — works on some executors that patch Roblox's HTTP)
+  ok, result = pcall(function()
     local echoRes = game:HttpGet("${domain}/api/echo-headers")
     local decoded = game:GetService("HttpService"):JSONDecode(echoRes)
-    local fingerprintHeaders = {
-      "syn-fingerprint", "sw-fingerprint", "krnl-hwid",
-      "sentinel-fingerprint", "proto-user-identifier",
-      "exploit-guid", "electron-fingerprint", "fingerprint",
-      "x-fingerprint",
-    }
-    for _, headerName in ipairs(fingerprintHeaders) do
+    if decoded and decoded.headers then
       for h, v in pairs(decoded.headers) do
-        if string.lower(h) == headerName or string.match(string.lower(h), "-fingerprint") then
+        if string.match(string.lower(h), ".-fingerprint$") or
+           h == "Krnl-HWID" or
+           h == "Proto-User-Identifier" then
           return v
         end
       end
     end
-    -- Method 2: syn.crypt.generate
-    if syn and syn.crypt and syn.crypt.generate then
-      return syn.crypt.generate("hwid")
-    end
-    if crypt and crypt.generate then
-      return crypt.generate("hwid")
-    end
-    if syn_crypt_generate then
-      return syn_crypt_generate("hwid")
-    end
-    -- Method 3: RbxAnalyticsService
-    local ok2, clientId = pcall(function()
-      return game:GetService("RbxAnalyticsService"):GetClientId()
-    end)
-    if ok2 then return clientId end
   end)
-  return ok and tostring(result) or ""
+  if ok and type(result) == "string" and #result > 0 then
+    return result
+  end
+
+  -- Method 6: RbxAnalyticsService:GetClientId() — last resort, not a true HWID
+  ok, result = pcall(function()
+    return game:GetService("RbxAnalyticsService"):GetClientId()
+  end)
+  if ok and type(result) == "string" and #result > 0 then
+    return result
+  end
+
+  return ""
 end
 
 local key = script_key or getgenv().script_key
