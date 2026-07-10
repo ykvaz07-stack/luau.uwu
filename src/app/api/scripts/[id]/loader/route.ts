@@ -8,7 +8,8 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const keyParam = searchParams.get("key");
 
-  const domain = process.env.NEXT_PUBLIC_SITE_URL || "https://luau.uwu";
+  const requestUrl = new URL(request.url);
+  const domain = process.env.NEXT_PUBLIC_SITE_URL || `${requestUrl.protocol}//${requestUrl.host}`;
 
   const lua = String.raw`
 --[[
