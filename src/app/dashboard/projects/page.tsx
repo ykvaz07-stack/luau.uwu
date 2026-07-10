@@ -34,30 +34,21 @@ export default function ProjectsPage() {
 
   async function createProject() {
     if (!newProjectName.trim()) return;
-    const supabase = createClient();
-    if (!supabase) return;
-
     setCreating(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setCreating(false);
-      return;
-    }
-
-    const { error } = await supabase.from("projects").insert({
-      name: newProjectName.trim(),
-      platform: "roblox",
-      user_id: user.id,
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newProjectName.trim() }),
     });
 
-    if (!error) {
+    if (res.ok) {
       setNewProjectName("");
       setShowNewModal(false);
       fetchProjects();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to create project");
     }
     setCreating(false);
   }

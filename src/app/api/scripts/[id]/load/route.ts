@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const ACCESS_DENIED_HTML = `<!DOCTYPE html>
+  const ACCESS_DENIED_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -15,7 +15,7 @@ const ACCESS_DENIED_HTML = `<!DOCTYPE html>
     color: #e0d0e0;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     display: flex; align-items: center; justify-content: center;
-    min-height: 100vh; overflow: hidden;
+    min-height: 100vh;
     background-image:
       radial-gradient(ellipse at 20% 50%, rgba(255,107,157,0.06) 0%, transparent 60%),
       radial-gradient(ellipse at 80% 50%, rgba(196,77,255,0.06) 0%, transparent 60%);
@@ -33,7 +33,6 @@ const ACCESS_DENIED_HTML = `<!DOCTYPE html>
     font-size: 2rem; font-weight: 800; margin-bottom: 0.75rem;
     background: linear-gradient(135deg, #ff6b9d, #c44dff, #ff6b9d);
     background-size: 200% 200%;
-    animation: shift 3s ease infinite;
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
   }
@@ -45,14 +44,9 @@ const ACCESS_DENIED_HTML = `<!DOCTYPE html>
     color: rgba(255,107,157,0.7);
     font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px;
   }
-  @keyframes shift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
-  .scanlines::after {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,107,157,0.015) 2px, rgba(255,107,157,0.015) 4px);
-  }
 </style>
 </head>
-<body class="scanlines">
+<body>
 <div class="container">
   <div class="icon">
     <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>

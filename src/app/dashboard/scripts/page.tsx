@@ -96,38 +96,35 @@ export default function ScriptsPage() {
 
   async function uploadScript() {
     if (!uploadName.trim() || !uploadContent.trim() || !uploadProject) return;
-    const supabase = createClient();
-    if (!supabase) return;
-
     setUploading(true);
 
-    const insertData: Record<string, unknown> = {
-      name: uploadName.trim(),
-      content: uploadContent.trim(),
-      project_id: uploadProject,
-      requires_key: uploadRequiresKey,
-    };
+    const res = await fetch("/api/scripts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: uploadName.trim(),
+        content: uploadContent.trim(),
+        project_id: uploadProject,
+        requires_key: uploadRequiresKey,
+        obfuscate: uploadObfuscate,
+      }),
+    });
 
-    if (uploadObfuscate) {
-      insertData.obfuscation_level = "pending";
+    if (res.ok) {
+      const data = await res.json();
+      if (data.script && uploadObfuscate) {
+        await obfuscateScript(data.script.id);
+      }
+      setUploadName("");
+      setUploadContent("");
+      setUploadObfuscate(true);
+      setUploadRequiresKey(false);
+      setShowUploadModal(false);
+      fetchData();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to upload script");
     }
-
-    const { data: newScript, error } = await supabase
-      .from("scripts")
-      .insert(insertData)
-      .select("id")
-      .single();
-
-    if (!error && newScript && uploadObfuscate) {
-      await obfuscateScript(newScript.id);
-    }
-
-    setUploadName("");
-    setUploadContent("");
-    setUploadObfuscate(true);
-    setUploadRequiresKey(false);
-    setShowUploadModal(false);
-    fetchData();
     setUploading(false);
   }
 

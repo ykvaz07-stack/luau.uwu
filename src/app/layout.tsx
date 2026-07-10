@@ -36,7 +36,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <StarsBackground />
-        <div className="scanlines" />
         {children}
       </body>
     </html>
@@ -44,7 +43,7 @@ export default function RootLayout({
 }
 
 function StarsBackground() {
-  const stars = Array.from({ length: 50 }, (_, i) => ({
+  const stars = Array.from({ length: 15 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     top: Math.random() * 100,

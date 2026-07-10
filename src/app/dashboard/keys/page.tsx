@@ -64,38 +64,35 @@ export default function KeysPage() {
 
   async function generateKeys() {
     if (!selectedScript) return;
-    const supabase = createClient();
-    if (!supabase) return;
-
     setGenerating(true);
 
-    // Look up the script's project_id so RLS allows the insert
-    const { data: script } = await supabase
-      .from("scripts")
-      .select("project_id")
-      .eq("id", selectedScript)
-      .single();
-    if (!script) { setGenerating(false); return; }
+    const authExpire =
+      generateExpiry === "never"
+        ? -1
+        : Math.floor(Date.now() / 1000) +
+          parseInt(generateExpiry) * 86400;
+    const keyDays =
+      generateExpiry === "never" ? null : parseInt(generateExpiry);
 
-    const keysToInsert = Array.from({ length: generateCount }, () => ({
-      project_id: script.project_id,
-      script_id: selectedScript,
-      user_key: generateRandomKey(),
-      auth_expire:
-        generateExpiry === "never"
-          ? -1
-          : Math.floor(Date.now() / 1000) +
-            parseInt(generateExpiry) * 86400,
-      key_days:
-        generateExpiry === "never" ? null : parseInt(generateExpiry),
-    }));
+    const res = await fetch("/api/keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: null,
+        script_id: selectedScript,
+        count: generateCount,
+        auth_expire: authExpire,
+        key_days: keyDays,
+      }),
+    });
 
-    const { error } = await supabase.from("keys").insert(keysToInsert);
-
-    if (!error) {
+    if (res.ok) {
       setShowGenerateModal(false);
       setGenerateCount(1);
       fetchData();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to generate keys");
     }
     setGenerating(false);
   }

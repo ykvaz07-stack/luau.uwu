@@ -1,30 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-async function getAuthUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
-  const { data } = await supabase.auth.getUser();
-  return data.user;
-}
-
-async function getAdminClient() {
-  const { createClient } = await import("@supabase/supabase-js");
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+import { getAuthUser, getAdminClient, checkKeyLimit } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
@@ -78,6 +53,77 @@ export async function GET() {
     });
 
     return NextResponse.json({ keys: allKeys });
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+}
+
+function generateRandomKey() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await getAuthUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await request.json();
+    let projectId = body.project_id;
+    const scriptId = body.script_id;
+    const count = Math.min(Math.max(parseInt(body.count) || 1, 1), 100);
+    const authExpire = body.auth_expire ?? -1;
+    const keyDays = body.key_days ?? null;
+
+    if (!scriptId) {
+      return NextResponse.json({ error: "Script ID required" }, { status: 400 });
+    }
+
+    if (!projectId) {
+      const supabase = getAdminClient();
+      const { data: script } = await supabase
+        .from("scripts")
+        .select("project_id")
+        .eq("id", scriptId)
+        .maybeSingle();
+      if (!script) return NextResponse.json({ error: "Script not found" }, { status: 404 });
+      projectId = script.project_id;
+    }
+
+    const check = await checkKeyLimit(user.id);
+    if (!check.allowed) {
+      return NextResponse.json({
+        error: `Key limit reached (${check.current}/${check.limit}). Upgrade your plan to create more keys.`
+      }, { status: 403 });
+    }
+
+    // Check if adding these keys would exceed the limit
+    if (check.limit !== "unlimited" && check.current + count > check.limit) {
+      return NextResponse.json({
+        error: `Cannot create ${count} keys — only ${check.limit - check.current} slots remaining.`
+      }, { status: 403 });
+    }
+
+    const supabase = getAdminClient();
+    const keysToInsert = Array.from({ length: count }, () => ({
+      project_id: projectId,
+      script_id: scriptId,
+      user_key: generateRandomKey(),
+      auth_expire: authExpire,
+      key_days: keyDays,
+    }));
+
+    const { data, error } = await supabase
+      .from("keys")
+      .insert(keysToInsert)
+      .select();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ keys: data });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }

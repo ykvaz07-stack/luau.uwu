@@ -91,16 +91,19 @@ export default function Home() {
           className="absolute top-20 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/8 blur-[120px]"
           animate={{ y: [0, -20, 0], x: [0, 10, 0] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          style={{ willChange: "transform" }}
         />
         <motion.div
           className="absolute bottom-40 right-1/4 w-[350px] h-[350px] rounded-full bg-[#c44dff]/8 blur-[120px]"
           animate={{ y: [0, 15, 0], x: [0, -10, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          style={{ willChange: "transform" }}
         />
         <motion.div
           className="absolute top-1/2 left-1/2 w-[250px] h-[250px] rounded-full bg-[#ff6b9d]/5 blur-[100px]"
           animate={{ scale: [1, 1.2, 1] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          style={{ willChange: "transform" }}
         />
       </div>
 
