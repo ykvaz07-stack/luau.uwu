@@ -101,7 +101,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("tickets")
-      .select("*, users(email)")
+      .select("*")
       .order("updated_at", { ascending: false });
 
     if (!isAdmin) {
@@ -109,7 +109,16 @@ export async function GET(request: Request) {
     }
 
     const { data: tickets } = await query;
-    return NextResponse.json({ tickets: tickets ?? [] });
+
+    // Hydrate user emails for admin view
+    let ticketsWithEmail: Record<string, unknown>[] = tickets ?? [];
+    if (isAdmin && tickets?.length) {
+      const { data: usersData } = await supabase.auth.admin.listUsers();
+      const userEmailMap = new Map((usersData?.users ?? []).map((u: { id: string; email?: string }) => [u.id, u.email || "unknown"]));
+      ticketsWithEmail = tickets.map((t: { user_id: string }) => ({ ...t, users: { email: userEmailMap.get(t.user_id) || "Unknown" } }));
+    }
+
+    return NextResponse.json({ tickets: ticketsWithEmail });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }

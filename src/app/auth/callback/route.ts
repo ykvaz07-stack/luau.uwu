@@ -10,6 +10,22 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          const { createClient } = await import("@supabase/supabase-js");
+          const admin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          );
+          await admin.from("ip_logs").insert({
+            user_id: user.id,
+            ip_address: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
+            user_agent: request.headers.get("user-agent") || "unknown",
+            action: "signup",
+          });
+        } catch {}
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

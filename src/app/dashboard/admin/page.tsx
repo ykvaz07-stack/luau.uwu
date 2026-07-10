@@ -259,9 +259,11 @@ export default function AdminPage() {
   async function fetchOsint() {
     try {
       const res = await fetch("/api/admin/osint");
+      if (!res.ok) { setOsintData({ logs: [], stats: { totalUsers: 0, uniqueIps: 0, totalSignups: 0, totalScriptLoads: 0, totalLogEntries: 0 } }); return; }
       const json = await res.json();
+      if (json.error) { setOsintData({ logs: [], stats: { totalUsers: 0, uniqueIps: 0, totalSignups: 0, totalScriptLoads: 0, totalLogEntries: 0 } }); return; }
       setOsintData(json);
-    } catch {}
+    } catch { setOsintData({ logs: [], stats: { totalUsers: 0, uniqueIps: 0, totalSignups: 0, totalScriptLoads: 0, totalLogEntries: 0 } }); }
   }
 
   async function approvePurchase(id: string, plan: string, userId: string) {
