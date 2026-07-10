@@ -61,13 +61,30 @@ export default function BillingPage() {
   const currentPlan = subscription?.plan || "free";
   const isExpired = subscription?.expires_at && new Date(subscription.expires_at) < new Date();
 
+  function getFingerprint(): string {
+    try {
+      const scr = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const lang = navigator.language;
+      const ua = navigator.userAgent.slice(0, 100);
+      const hash = Array.from(scr + tz + lang + ua, (c) => c.charCodeAt(0).toString(16)).join("");
+      return hash.slice(0, 64);
+    } catch {
+      return crypto.randomUUID?.() || Math.random().toString(36).slice(2, 10);
+    }
+  }
+
   async function startFreeTrial() {
     if (startingTrial) return;
     setStartingTrial(true);
     setTrialError(null);
 
     try {
-      const res = await fetch("/api/subscriptions/trial", { method: "POST" });
+      const res = await fetch("/api/subscriptions/trial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fingerprint: getFingerprint() }),
+      });
       const data = await res.json();
 
       if (!res.ok) {

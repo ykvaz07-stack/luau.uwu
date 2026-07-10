@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, getAdminClient } from "@/lib/supabase/admin";
+import { headers } from "next/headers";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const user = await getAuthUser();
     if (!user) {
@@ -9,14 +10,74 @@ export async function POST() {
     }
 
     const supabase = getAdminClient();
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
+    const body = await request.json().catch(() => ({}));
+    const fingerprint = body.fingerprint || null;
 
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Anti-exploit check 1: Rate limit - max 1 trial attempt per 24h per IP
+    const { count: recentTrialAttempts } = await supabase
+      .from("ip_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("ip_address", ip)
+      .eq("action", "start_trial")
+      .gte("created_at", oneDayAgo.toISOString());
+
+    if (recentTrialAttempts && recentTrialAttempts > 0) {
+      return NextResponse.json({
+        error: "Trial already attempted from this IP recently. Please wait 24 hours."
+      }, { status: 429 });
+    }
+
+    // Anti-exploit check 2: Account must be at least 1 hour old
+    const createdAt = new Date(user.created_at);
+    if (createdAt > oneHourAgo) {
+      const minsAgo = Math.round((now.getTime() - createdAt.getTime()) / 60000);
+      return NextResponse.json({
+        error: `Account must be at least 1 hour old to start a trial (${minsAgo}m old). Please wait.`
+      }, { status: 403 });
+    }
+
+    // Anti-exploit check 3: Check if this user already used their trial
     const existing = await supabase
       .from("subscriptions")
-      .select("id")
+      .select("id, plan, trial_used")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (existing.data) {
+      if (existing.data.trial_used) {
+        return NextResponse.json({
+          error: "Trial already used on this account."
+        }, { status: 403 });
+      }
+      if (existing.data.plan !== "free") {
+        return NextResponse.json({
+          error: "You already have an active subscription."
+        }, { status: 403 });
+      }
+    }
+
+    // Anti-exploit check 4: Browser fingerprint duplicate check
+    if (fingerprint) {
+      const { data: fpMatch } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("trial_fingerprint", fingerprint)
+        .maybeSingle();
+
+      if (fpMatch) {
+        return NextResponse.json({
+          error: "Trial already started from this device."
+        }, { status: 403 });
+      }
+    }
+
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     if (existing.data) {
       const { error } = await supabase
@@ -25,6 +86,7 @@ export async function POST() {
           plan: "pro",
           status: "active",
           trial_used: true,
+          trial_fingerprint: fingerprint,
           starts_at: now.toISOString(),
           expires_at: expiresAt.toISOString(),
         })
@@ -41,6 +103,7 @@ export async function POST() {
           plan: "pro",
           status: "active",
           trial_used: true,
+          trial_fingerprint: fingerprint,
           starts_at: now.toISOString(),
           expires_at: expiresAt.toISOString(),
         });
@@ -50,8 +113,16 @@ export async function POST() {
       }
     }
 
+    // Audit log
+    await supabase.from("ip_logs").insert({
+      user_id: user.id,
+      ip_address: ip,
+      action: "start_trial",
+      user_agent: headersList.get("user-agent")?.slice(0, 500) || null,
+    });
+
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 }
