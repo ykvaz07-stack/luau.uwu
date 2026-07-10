@@ -109,9 +109,19 @@ local function getHwid()
   return ""
 end
 
+local function kick(msg)
+  local ok, plr = pcall(function() return game:GetService("Players").LocalPlayer end)
+  if ok and plr then
+    plr:Kick(tostring(msg))
+  else
+    error(tostring(msg), 0)
+  end
+end
+
 local key = script_key or getgenv().script_key
 if type(key) ~= "string" or #key < 5 then
-  return error("[luau.uwu] No valid key found. Set script_key = 'YOUR_KEY' at the top of your script.", 0)
+  kick("[luau.uwu] No valid key found. Set script_key = 'YOUR_KEY' at the top of your script.")
+  return
 end
 
 local hwid = getHwid()
@@ -125,20 +135,24 @@ local ok, result = pcall(function()
 end)
 
 if not ok then
-  return error("[luau.uwu] Failed to contact server: " .. tostring(result), 0)
+  kick("[luau.uwu] Failed to contact server: " .. tostring(result))
+  return
 end
 
 if result:find("luau.uwu:") then
-  return error(result, 0)
+  local msg = result:match("%-%- (.+)")
+  kick(msg or "Access Denied")
+  return
 end
 
 local fn, compileErr = loadstring(result)
 if not fn then
-  return error("[luau.uwu] Script error: " .. tostring(compileErr), 0)
+  kick("[luau.uwu] Script error: " .. tostring(compileErr))
+  return
 end
 local success, runtimeErr = pcall(fn)
 if not success then
-  return error("[luau.uwu] Runtime error: " .. tostring(runtimeErr), 0)
+  kick("[luau.uwu] Runtime error: " .. tostring(runtimeErr))
 end
 `;
 
