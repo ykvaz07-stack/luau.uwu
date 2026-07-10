@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run build:clyde && next build",
-    "build:clyde": "cd clyde && npm ci && npx tsc",
+    "build:clyde": "cd clyde && npm ci --production",
     "start": "next start",
     "lint": "eslint"
   },
