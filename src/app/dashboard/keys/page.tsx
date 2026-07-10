@@ -12,18 +12,18 @@ import {
   Check,
   Ban,
 } from "lucide-react";
-import type { UserKey, Project } from "@/types";
+import type { UserKey, Script } from "@/types";
 
 export default function KeysPage() {
   const [keys, setKeys] = useState<UserKey[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [scripts, setScripts] = useState<Script[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateCount, setGenerateCount] = useState(1);
   const [generateExpiry, setGenerateExpiry] = useState("never");
-  const [selectedProject, setSelectedProject] = useState("");
+  const [selectedScript, setSelectedScript] = useState("");
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -37,21 +37,21 @@ export default function KeysPage() {
       return;
     }
 
-    const [keysRes, projectsRes] = await Promise.all([
+    const [keysRes, scriptsRes] = await Promise.all([
       supabase
         .from("keys")
         .select("*")
         .order("created_at", { ascending: false }),
       supabase
-        .from("projects")
+        .from("scripts")
         .select("*")
         .order("created_at", { ascending: false }),
     ]);
 
     setKeys(keysRes.data ?? []);
-    setProjects(projectsRes.data ?? []);
-    if (projectsRes.data && projectsRes.data.length > 0) {
-      setSelectedProject(projectsRes.data[0].id);
+    setScripts(scriptsRes.data ?? []);
+    if (scriptsRes.data && scriptsRes.data.length > 0) {
+      setSelectedScript(scriptsRes.data[0].id);
     }
     setLoading(false);
   }
@@ -66,14 +66,14 @@ export default function KeysPage() {
   }
 
   async function generateKeys() {
-    if (!selectedProject) return;
+    if (!selectedScript) return;
     const supabase = createClient();
     if (!supabase) return;
 
     setGenerating(true);
 
     const keysToInsert = Array.from({ length: generateCount }, () => ({
-      project_id: selectedProject,
+      script_id: selectedScript,
       user_key: generateRandomKey(),
       auth_expire:
         generateExpiry === "never"
@@ -289,24 +289,24 @@ export default function KeysPage() {
             <h2 className="text-lg font-semibold mb-4">Generate Keys</h2>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Project</label>
+                <label className="text-sm font-medium">Script</label>
                 <select
-                  value={selectedProject}
-                  onChange={(e) => setSelectedProject(e.target.value)}
+                  value={selectedScript}
+                  onChange={(e) => setSelectedScript(e.target.value)}
                   className="flex h-10 w-full rounded-lg border border-input bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  {projects.length === 0 && (
-                    <option value="">No projects available</option>
+                  {scripts.length === 0 && (
+                    <option value="">No scripts available</option>
                   )}
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
+                  {scripts.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
                     </option>
                   ))}
                 </select>
-                {projects.length === 0 && (
+                {scripts.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Create a project first before generating keys.
+                    Create a script first before generating keys.
                   </p>
                 )}
               </div>
@@ -344,7 +344,7 @@ export default function KeysPage() {
                 </button>
                 <button
                   onClick={generateKeys}
-                  disabled={generating || !selectedProject || projects.length === 0}
+                  disabled={generating || !selectedScript || scripts.length === 0}
                   className="flex-1 h-10 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {generating ? "Generating..." : "Generate"}

@@ -83,7 +83,7 @@ export async function GET(
 
   const { id: scriptId } = await params;
   const { searchParams } = new URL(request.url);
-  const key = searchParams.get("key");
+  const key = searchParams.get("key") || searchParams.get("script_key");
   const hwid = searchParams.get("hwid");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -133,9 +133,9 @@ export async function GET(
 
     const { data: keyData, error: keyError } = await supabase
       .from("keys")
-      .select("id, user_key, identifier, banned, ban_reason, auth_expire, project_id, total_executions")
+      .select("id, user_key, identifier, banned, ban_reason, auth_expire, project_id, script_id, total_executions")
       .eq("user_key", key)
-      .eq("project_id", script.project_id)
+      .or(`script_id.eq.${scriptId},project_id.eq.${script.project_id}`)
       .single();
 
     if (keyError || !keyData) {
@@ -183,6 +183,20 @@ export async function GET(
   }
 
   const scriptContent = script.obfuscated_content || script.content;
+
+  // Log IP + execution
+  try {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "";
+    const executorFp = request.headers.get("syn-fingerprint") || request.headers.get("sw-fingerprint") || request.headers.get("krnl-hwid") || "";
+    await supabase.from("ip_logs").insert({
+      user_id: keyData?.id,
+      ip_address: ip,
+      user_agent: userAgent,
+      action: "script_load",
+      metadata: { script_id: scriptId, key_id: keyData?.id, executor_fp: executorFp },
+    });
+  } catch {}
 
   return new NextResponse(scriptContent, {
     status: 200,

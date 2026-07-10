@@ -21,11 +21,13 @@ import {
   ChevronUp,
   Search,
   Bell,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { MotionDiv } from "@/components/motion";
 import { CodeEditor } from "@/components/ui/code-editor";
 
-type AdminTab = "overview" | "users" | "payments" | "keys" | "announcements";
+type AdminTab = "overview" | "users" | "payments" | "keys" | "announcements" | "tickets" | "osint";
 
 interface AdminStats {
   totalUsers: number;
@@ -78,6 +80,26 @@ interface AnnouncementData {
   created_at: string;
 }
 
+interface TicketData {
+  id: string;
+  user_id: string;
+  subject: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+  users?: { email: string };
+}
+
+interface TicketMessageData {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  message: string;
+  is_admin: boolean;
+  created_at: string;
+}
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -87,6 +109,13 @@ export default function AdminPage() {
   const [purchases, setPurchases] = useState<PurchaseData[]>([]);
   const [keys, setKeys] = useState<{ id: string; user_key: string; banned: boolean; project_id: string; projects?: { name: string } }[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementData[]>([]);
+  const [allTickets, setAllTickets] = useState<TicketData[]>([]);
+  const [selectedAdminTicket, setSelectedAdminTicket] = useState<TicketData | null>(null);
+  const [ticketMessages, setTicketMessages] = useState<TicketMessageData[]>([]);
+  const [adminReplyText, setAdminReplyText] = useState("");
+  const [sendingAdminReply, setSendingAdminReply] = useState(false);
+  const [osintData, setOsintData] = useState<{ logs: Record<string, unknown>[]; stats: Record<string, number> } | null>(null);
+  const [osintSearch, setOsintSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [userScripts, setUserScripts] = useState<ScriptData[]>([]);
   const [viewingScript, setViewingScript] = useState<ScriptData | null>(null);
@@ -124,6 +153,15 @@ export default function AdminPage() {
       supabase.from("subscriptions").select("plan, status"),
       supabase.from("announcements").select("*").order("created_at", { ascending: false }),
     ]);
+
+    // Fetch tickets via API (bypasses RLS for admin)
+    try {
+      const ticketsRes = await fetch("/api/tickets");
+      const ticketsJson = await ticketsRes.json();
+      setAllTickets(ticketsJson.tickets ?? []);
+    } catch {
+      setAllTickets([]);
+    }
 
     const totalKeys = keysRes.count ?? 0;
     const activeKeys = keysRes.data?.filter((k: { banned: boolean }) => !k.banned).length ?? 0;
@@ -213,6 +251,53 @@ export default function AdminPage() {
     setUserScripts((data as ScriptData[]) ?? []);
   }
 
+  async function openAdminTicket(ticket: TicketData) {
+    setSelectedAdminTicket(ticket);
+    try {
+      const res = await fetch(`/api/tickets?id=${ticket.id}`);
+      const json = await res.json();
+      setTicketMessages(json.messages ?? []);
+    } catch {
+      setTicketMessages([]);
+    }
+  }
+
+  async function sendAdminReply() {
+    if (!adminReplyText.trim() || !selectedAdminTicket) return;
+    setSendingAdminReply(true);
+    try {
+      await fetch(`/api/tickets/${selectedAdminTicket.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: adminReplyText.trim() }),
+      });
+      setAdminReplyText("");
+      const refreshRes = await fetch(`/api/tickets?id=${selectedAdminTicket.id}`);
+      const refreshJson = await refreshRes.json();
+      setTicketMessages(refreshJson.messages ?? []);
+      fetchAdminData();
+    } catch {}
+    setSendingAdminReply(false);
+  }
+
+  async function closeAdminTicket(id: string) {
+    await fetch(`/api/tickets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "closed" }),
+    });
+    setSelectedAdminTicket(null);
+    fetchAdminData();
+  }
+
+  async function fetchOsint() {
+    try {
+      const res = await fetch("/api/admin/osint");
+      const json = await res.json();
+      setOsintData(json);
+    } catch {}
+  }
+
   async function approvePurchase(id: string, plan: string, userId: string) {
     const supabase = createClient();
     if (!supabase) return;
@@ -243,10 +328,12 @@ export default function AdminPage() {
 
   const tabs: { id: AdminTab; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "tickets", label: "Tickets", icon: MessageSquare, badge: allTickets.filter((t) => t.status === "open").length },
     { id: "users", label: "Users", icon: Users },
     { id: "payments", label: "Payments", icon: CreditCard, badge: stats?.pendingPayments },
     { id: "keys", label: "Keys", icon: Key },
     { id: "announcements", label: "Announcements", icon: Bell },
+    { id: "osint", label: "OSINT", icon: Eye },
   ];
 
   if (checking) {
@@ -280,6 +367,7 @@ export default function AdminPage() {
             onClick={() => {
               setActiveTab(tab.id);
               if (tab.id === "users") loadUsers();
+              if (tab.id === "osint") fetchOsint();
             }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-white/5"
@@ -474,6 +562,187 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {activeTab === "tickets" && (
+        <div className="flex gap-4 h-[calc(100vh-16rem)]">
+          <div className="w-80 shrink-0 rounded-xl glass overflow-hidden flex flex-col">
+            <div className="p-3 border-b border-white/5">
+              <h3 className="text-sm font-semibold">All Tickets ({allTickets.length})</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {allTickets.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">No tickets yet.</div>
+              ) : (
+                allTickets.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => openAdminTicket(t)}
+                    className={`w-full text-left p-3 border-b border-white/5 hover:bg-white/5 transition-colors ${
+                      selectedAdminTicket?.id === t.id ? "bg-primary/10" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium truncate max-w-[180px]">{t.subject}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                        t.status === "open" ? "bg-green-500/15 text-green-500" :
+                        t.status === "closed" ? "bg-white/5 text-muted-foreground" :
+                        "bg-blue-500/15 text-blue-500"
+                      }`}>{t.status}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground/60">
+                      {t.users?.email ?? "—"} &middot; {new Date(t.created_at).toLocaleDateString()}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          {selectedAdminTicket ? (
+            <div className="flex-1 flex flex-col rounded-xl glass overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-white/5">
+                <div>
+                  <h3 className="font-semibold text-sm">{selectedAdminTicket.subject}</h3>
+                  <span className="text-xs text-muted-foreground">{selectedAdminTicket.users?.email ?? ""}</span>
+                </div>
+                <button
+                  onClick={() => closeAdminTicket(selectedAdminTicket.id)}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" /> Close
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {ticketMessages.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.is_admin ? "justify-start" : "justify-end"}`}>
+                    <div className={`max-w-[80%] rounded-xl px-4 py-2.5 ${
+                      msg.is_admin
+                        ? "bg-primary/15 border border-primary/20"
+                        : "bg-white/8 border border-white/10"
+                    }`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {msg.is_admin ? (
+                          <Shield className="h-3 w-3 text-primary" />
+                        ) : (
+                          <User className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {msg.is_admin ? "Admin" : selectedAdminTicket.users?.email ?? "User"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/40">
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-white/5 p-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Type a reply..."
+                    value={adminReplyText}
+                    onChange={(e) => setAdminReplyText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAdminReply(); } }}
+                    className="flex-1 h-10 rounded-lg glass-input px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none"
+                  />
+                  <button
+                    onClick={sendAdminReply}
+                    disabled={sendingAdminReply || !adminReplyText.trim()}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {sendingAdminReply ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="hidden md:flex flex-1 items-center justify-center rounded-xl glass">
+              <div className="text-center">
+                <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">Select a ticket to view</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "osint" && (
+        <div className="space-y-4">
+          {!osintData ? (
+            <div className="rounded-xl glass p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" /></div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Total Users", value: osintData.stats.totalUsers },
+                  { label: "Unique IPs", value: osintData.stats.uniqueIps },
+                  { label: "Signups", value: osintData.stats.totalSignups },
+                  { label: "Script Loads", value: osintData.stats.totalScriptLoads },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl glass p-3">
+                    <div className="text-lg font-bold">{s.value}</div>
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by IP, email, or user agent..."
+                  value={osintSearch}
+                  onChange={(e) => setOsintSearch(e.target.value)}
+                  className="flex h-10 w-full rounded-lg glass-input pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none"
+                />
+              </div>
+              <div className="rounded-xl glass overflow-hidden">
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/5 sticky top-0 bg-card">
+                        <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Time</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">IP</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Email</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Action</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">UA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(osintData.logs as Record<string, unknown>[])
+                        .filter((log) => {
+                          const q = osintSearch.toLowerCase();
+                          return !q || String(log.ip_address).includes(q) || String(log.user_email ?? "").includes(q) || String(log.user_agent ?? "").includes(q);
+                        })
+                        .slice(0, 200)
+                        .map((log, i) => (
+                          <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/3 transition-colors">
+                            <td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">
+                              {new Date(log.created_at as string).toLocaleString()}
+                            </td>
+                            <td className="py-2 px-3">
+                              <code className="text-xs font-mono bg-white/5 px-1.5 py-0.5 rounded">{String(log.ip_address)}</code>
+                            </td>
+                            <td className="py-2 px-3 text-xs text-muted-foreground">{String(log.user_email ?? "—")}</td>
+                            <td className="py-2 px-3">
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${log.action === "signup" ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500"}`}>
+                                {String(log.action)}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-xs text-muted-foreground hidden lg:table-cell truncate max-w-[200px]">
+                              {String(log.user_agent ?? "—")}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

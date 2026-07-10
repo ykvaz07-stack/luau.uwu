@@ -15,6 +15,26 @@ export function createClient() {
     return null as unknown as ReturnType<typeof createBrowserClient>;
   }
 
-  client = createBrowserClient(supabaseUrl, supabaseKey);
+  client = createBrowserClient(supabaseUrl, supabaseKey, {
+    cookieOptions: {
+      maxAge: 60 * 60 * 24 * 365 * 10,
+    },
+  });
   return client;
+}
+
+export async function getCurrentUserId(): Promise<string | null> {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+export async function isAdminUser(): Promise<boolean> {
+  const supabase = createClient();
+  if (!supabase) return false;
+  const { data } = await supabase.auth.getUser();
+  if (!data.user?.email) return false;
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+  return adminEmail ? data.user.email === adminEmail : false;
 }

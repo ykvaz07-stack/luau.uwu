@@ -104,6 +104,7 @@ export interface IpLog {
   ip_address: string;
   user_agent: string | null;
   action: string;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -123,6 +124,26 @@ export interface Announcement {
   content: string;
   type: 'info' | 'warning' | 'urgent';
   active: boolean;
+  created_at: string;
+}
+
+export interface Ticket {
+  id: string;
+  user_id: string;
+  subject: string;
+  status: "open" | "closed" | "resolved";
+  priority: "low" | "normal" | "high" | "urgent";
+  created_at: string;
+  updated_at: string;
+  users?: { email: string };
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  message: string;
+  is_admin: boolean;
   created_at: string;
 }
 

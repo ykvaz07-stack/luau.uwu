@@ -14,6 +14,7 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -24,8 +25,8 @@ const navItems = [
   { label: "Scripts", href: "/dashboard/scripts", icon: FileCode },
   { label: "Keys", href: "/dashboard/keys", icon: Key },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
+  { label: "Support", href: "/dashboard/support", icon: MessageSquare },
   { label: "Tools", href: "/dashboard/tools", icon: Wrench },
-  { label: "Admin", href: "/dashboard/admin", icon: Shield },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
@@ -54,9 +55,18 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [userPlan, setUserPlan] = useState("free");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     getPlan().then(setUserPlan);
+    const supabase = createClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+        if (adminEmail && data.user.email === adminEmail) setIsAdmin(true);
+      }
+    });
   }, []);
 
   const planColors: Record<string, string> = {
@@ -111,6 +121,20 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/dashboard/admin"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
+              pathname.startsWith("/dashboard/admin")
+                ? "bg-primary/15 text-primary glow-pink-sm"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            } ${collapsed ? "justify-center" : ""}`}
+            title={collapsed ? "Admin" : undefined}
+          >
+            <Shield className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>Admin</span>}
+          </Link>
+        )}
       </nav>
 
       {!collapsed && (
