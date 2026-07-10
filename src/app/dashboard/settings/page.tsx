@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User, Shield, Key, Bell, Copy, Check, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { User, Shield, Key, Bell, Copy, Check, Eye, EyeOff, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedApiKey, setCopiedApiKey] = useState(false);
   const [email, setEmail] = useState("");
+  const [plan, setPlan] = useState("free");
   const [loading, setLoading] = useState(true);
   const [apiKey, setApiKey] = useState("ss_live_" + "aB3dE5gH7jK9mN1pQ3rS5tU7vW");
   const [notifications, setNotifications] = useState({ email: true, keyAlerts: false });
@@ -27,6 +28,12 @@ export default function SettingsPage() {
 
       if (user) {
         setEmail(user.email ?? "");
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("plan")
+          .eq("user_id", user.id)
+          .single();
+        if (sub?.plan) setPlan(sub.plan as string);
       }
       setLoading(false);
     }
@@ -68,7 +75,9 @@ export default function SettingsPage() {
             <label className="text-sm font-medium">Current Plan</label>
             <div className="flex items-center gap-3">
               <div className="flex h-10 items-center rounded-lg border border-border px-4">
-                <span className="text-sm font-medium">Free</span>
+                <span className={`text-sm font-medium capitalize ${plan === "pro" ? "text-primary" : plan === "premium" ? "text-yellow-500" : ""}`}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : plan}
+                </span>
               </div>
               <Link
                 href="/dashboard/billing"

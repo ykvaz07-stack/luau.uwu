@@ -23,6 +23,7 @@ import {
   Bell,
   MessageSquare,
   Send,
+  User,
 } from "lucide-react";
 import { MotionDiv } from "@/components/motion";
 import { CodeEditor } from "@/components/ui/code-editor";
@@ -131,7 +132,7 @@ export default function AdminPage() {
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
         if (adminEmail && user.email === adminEmail) {
           setIsAdmin(true);
-          fetchAdminData();
+          await fetchAdminData();
         } else {
           setChecking(false);
         }
@@ -143,16 +144,16 @@ export default function AdminPage() {
   }, []);
 
   async function fetchAdminData() {
-    const supabase = createClient();
-    if (!supabase) { setLoading(false); setChecking(false); return; }
-
-    const [scriptsRes, keysRes, purchasesRes, subsRes, announcementsRes] = await Promise.all([
-      supabase.from("scripts").select("id, name, content, project_id, version, obfuscation_level, projects(name)"),
-      supabase.from("keys").select("id, user_key, banned, project_id, projects(name)"),
-      supabase.from("purchases").select("*").order("created_at", { ascending: false }),
-      supabase.from("subscriptions").select("plan, status"),
-      supabase.from("announcements").select("*").order("created_at", { ascending: false }),
-    ]);
+    try {
+      const res = await fetch("/api/admin/stats");
+      const json = await res.json();
+      setStats(json.stats);
+      setKeys(json.keys ?? []);
+      setPurchases(json.purchasesWithEmail ?? []);
+      setAnnouncements((json.announcements ?? []) as AnnouncementData[]);
+    } catch {
+      setStats(null);
+    }
 
     // Fetch tickets via API (bypasses RLS for admin)
     try {
@@ -163,82 +164,47 @@ export default function AdminPage() {
       setAllTickets([]);
     }
 
-    const totalKeys = keysRes.count ?? 0;
-    const activeKeys = keysRes.data?.filter((k: { banned: boolean }) => !k.banned).length ?? 0;
-    const pendingPurchases = purchasesRes.data?.filter((p: { status: string }) => p.status === "pending") ?? [];
-    const totalRevenue = purchasesRes.data?.filter((p: { status: string }) => p.status === "approved").reduce((sum: number, p: { amount: number }) => sum + p.amount, 0) ?? 0;
-    const activeSubs = subsRes.data?.filter((s: { status: string }) => s.status === "active").length ?? 0;
-
-    // Fetch user emails for purchases
-    let purchaseEmailMap = new Map<string, string>();
-    if (purchasesRes.data && purchasesRes.data.length > 0) {
-      const userIds = [...new Set(purchasesRes.data.map((p: { user_id: string }) => p.user_id))];
-      try {
-        const { data: authUsers } = await supabase.auth.admin.listUsers();
-        if (authUsers?.users) {
-          authUsers.users.forEach((u: { id: string; email?: string }) => {
-            if (u.email) purchaseEmailMap.set(u.id, u.email);
-          });
-        }
-      } catch (e) {
-        console.error("Could not list auth users:", e);
-      }
-    }
-
-    const purchasesWithEmail = (purchasesRes.data ?? []).map((p: PurchaseData) => ({
-      ...p,
-      user_email: purchaseEmailMap.get(p.user_id) || "Unknown",
-    }));
-
-    setStats({
-      totalUsers: purchaseEmailMap.size || 0,
-      totalScripts: scriptsRes.count ?? 0,
-      totalKeys,
-      activeKeys,
-      totalRevenue,
-      pendingPayments: pendingPurchases.length,
-      activeSubscriptions: activeSubs,
-    });
-    setPurchases(purchasesWithEmail);
-    setKeys(keysRes.data ?? []);
-    setAnnouncements((announcementsRes.data ?? []) as AnnouncementData[]);
     setLoading(false);
     setChecking(false);
   }
 
   const loadUsers = useCallback(async () => {
-    const supabase = createClient();
-    if (!supabase) return;
+    try {
+      const res = await fetch("/api/admin/stats");
+      const json = await res.json();
+      const authUsers = json.authUsers ?? [];
+      const supabase = createClient();
+      if (!supabase) return;
+      const s = supabase;
+      const subsRes = await s.from("subscriptions").select("user_id, plan");
+      const scriptsRes = await s.from("scripts").select("project_id, projects(user_id)");
+      const keysRes = await s.from("keys").select("id, projects(user_id)");
 
-    const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
-    const subsRes = await supabase.from("subscriptions").select("user_id, plan");
-    const scriptsRes = await supabase.from("scripts").select("project_id, projects(user_id)");
-    const keysRes = await supabase.from("keys").select("id, projects(user_id)");
+      const subMap = new Map((subsRes.data ?? []).map((s: { user_id: string; plan: string }) => [s.user_id, s.plan]));
+      const scriptCountMap = new Map<string, number>();
+      const keyCountMap = new Map<string, number>();
 
-    const subMap = new Map((subsRes.data ?? []).map((s: { user_id: string; plan: string }) => [s.user_id, s.plan]));
-    const scriptCountMap = new Map<string, number>();
-    const keyCountMap = new Map<string, number>();
+      (scriptsRes.data ?? []).forEach((s: { projects?: { user_id: string } }) => {
+        const uid = s.projects?.user_id;
+        if (uid) scriptCountMap.set(uid, (scriptCountMap.get(uid) || 0) + 1);
+      });
+      (keysRes.data ?? []).forEach((k: { projects?: { user_id: string } }) => {
+        const uid = k.projects?.user_id;
+        if (uid) keyCountMap.set(uid, (keyCountMap.get(uid) || 0) + 1);
+      });
 
-    (scriptsRes.data ?? []).forEach((s: { projects?: { user_id: string } }) => {
-      const uid = s.projects?.user_id;
-      if (uid) scriptCountMap.set(uid, (scriptCountMap.get(uid) || 0) + 1);
-    });
-    (keysRes.data ?? []).forEach((k: { projects?: { user_id: string } }) => {
-      const uid = k.projects?.user_id;
-      if (uid) keyCountMap.set(uid, (keyCountMap.get(uid) || 0) + 1);
-    });
+      const mapped: UserData[] = (authUsers ?? []).map((u: { id: string; email: string; created_at: string; last_sign_in_at: string | null }) => ({
+        id: u.id,
+        email: u.email ?? "unknown",
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+        plan: subMap.get(u.id) || "free",
+        scriptCount: scriptCountMap.get(u.id) || 0,
+        keyCount: keyCountMap.get(u.id) || 0,
+      }));
 
-    const mapped: UserData[] = (authUsers ?? []).map((u: { id: string; email: string | null; created_at: string; last_sign_in_at: string | null }) => ({
-      id: u.id,
-      email: u.email ?? "unknown",
-      created_at: u.created_at,
-      last_sign_in_at: u.last_sign_in_at ?? null,
-      plan: subMap.get(u.id) || "free",
-      scriptCount: scriptCountMap.get(u.id) || 0,
-      keyCount: keyCountMap.get(u.id) || 0,
-    }));
-
-    setUsers(mapped);
+      setUsers(mapped);
+    } catch {}
   }, []);
 
   async function loadUserScripts(userId: string) {
@@ -275,7 +241,7 @@ export default function AdminPage() {
       const refreshRes = await fetch(`/api/tickets?id=${selectedAdminTicket.id}`);
       const refreshJson = await refreshRes.json();
       setTicketMessages(refreshJson.messages ?? []);
-      fetchAdminData();
+      await fetchAdminData();
     } catch {}
     setSendingAdminReply(false);
   }
@@ -287,7 +253,7 @@ export default function AdminPage() {
       body: JSON.stringify({ status: "closed" }),
     });
     setSelectedAdminTicket(null);
-    fetchAdminData();
+    await fetchAdminData();
   }
 
   async function fetchOsint() {
@@ -315,7 +281,7 @@ export default function AdminPage() {
     }
 
     await supabase.from("audit_logs").insert({ admin_id: (await supabase.auth.getUser()).data.user?.id, action: "approve_purchase", target_type: "purchase", target_id: id, details: { plan, user_id: userId } });
-    fetchAdminData();
+    await fetchAdminData();
   }
 
   async function rejectPurchase(id: string) {
@@ -323,7 +289,7 @@ export default function AdminPage() {
     if (!supabase) return;
     await supabase.from("purchases").update({ status: "rejected", reviewed_at: new Date().toISOString() }).eq("id", id);
     await supabase.from("audit_logs").insert({ admin_id: (await supabase.auth.getUser()).data.user?.id, action: "reject_purchase", target_type: "purchase", target_id: id });
-    fetchAdminData();
+    await fetchAdminData();
   }
 
   const tabs: { id: AdminTab; label: string; icon: React.ElementType; badge?: number }[] = [
@@ -364,10 +330,12 @@ export default function AdminPage() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => {
+            onClick={async () => {
               setActiveTab(tab.id);
-              if (tab.id === "users") loadUsers();
-              if (tab.id === "osint") fetchOsint();
+              if (tab.id === "users") { await loadUsers(); return; }
+              if (tab.id === "osint") { await fetchOsint(); return; }
+              // For other tabs, close admin ticket panel if open
+              if (tab.id !== "tickets") setSelectedAdminTicket(null);
             }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-white/5"

@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
+import { isDisposableEmail, isPlusAddressedEmail } from "@/lib/anti-abuse";
 
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
     if (!email?.includes("@")) {
       return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+    }
+
+    if (isDisposableEmail(email)) {
+      return NextResponse.json({ error: "Disposable email addresses are not allowed" }, { status: 400 });
+    }
+
+    if (isPlusAddressedEmail(email)) {
+      return NextResponse.json({ error: "Plus-addressed emails are not allowed" }, { status: 400 });
     }
 
     const resendKey = process.env.RESEND_API_KEY;

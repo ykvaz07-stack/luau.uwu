@@ -5,6 +5,13 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Mail, Lock, ArrowRight, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 
+const DISPOSABLE_KEYWORDS = ["tempmail", "temp-mail", "throwaway", "disposable", "trashmail", "fakeinbox", "dropmail", "getairmail", "maildrop", "guerrillamail", "spamgourmet", "mailinator", "yopmail", "jetable", "wegwerfemail"];
+function looksDisposable(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return false;
+  return DISPOSABLE_KEYWORDS.some((k) => domain.includes(k));
+}
+
 export default function SignupPage() {
   const [step, setStep] = useState<"form" | "verify" | "done">("form");
   const [email, setEmail] = useState("");
@@ -41,6 +48,8 @@ export default function SignupPage() {
 
     if (password !== confirmPassword) { setError("Passwords do not match"); setLoading(false); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); setLoading(false); return; }
+    if (email.includes("+")) { setError("Plus-addressed emails are not allowed"); setLoading(false); return; }
+    if (looksDisposable(email)) { setError("Disposable email addresses are not allowed. Use a permanent email."); setLoading(false); return; }
 
     if (hasEmailService) {
       try {
