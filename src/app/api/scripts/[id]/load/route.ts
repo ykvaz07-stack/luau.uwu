@@ -84,7 +84,21 @@ export async function GET(
   const { id: scriptId } = await params;
   const { searchParams } = new URL(request.url);
   const key = searchParams.get("key") || searchParams.get("script_key");
-  const hwid = searchParams.get("hwid");
+
+  // HWID from URL param (loader) or from executor request headers (direct call)
+  const headerHwid =
+    request.headers.get("syn-fingerprint") ||
+    request.headers.get("Syn-Fingerprint") ||
+    request.headers.get("krnl-hwid") ||
+    request.headers.get("Krnl-HWID") ||
+    request.headers.get("sw-fingerprint") ||
+    request.headers.get("sentinel-fingerprint") ||
+    request.headers.get("proto-user-identifier") ||
+    request.headers.get("exploit-guid") ||
+    request.headers.get("fingerprint") ||
+    request.headers.get("x-fingerprint") ||
+    "";
+  const hwid = searchParams.get("hwid") || headerHwid || "";
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -103,6 +117,11 @@ export async function GET(
     .select("id, content, obfuscated_content, project_id")
     .eq("id", scriptId)
     .single();
+
+  // Log IP + execution info (before any early returns that come after script fetch)
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+  const userAgent = request.headers.get("user-agent") || "";
+  const executorFp = hwid || "";
 
   if (scriptError || !script) {
     return new NextResponse(
@@ -193,9 +212,6 @@ export async function GET(
 
   // Log IP + execution
   try {
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-    const userAgent = request.headers.get("user-agent") || "";
-    const executorFp = request.headers.get("syn-fingerprint") || request.headers.get("sw-fingerprint") || request.headers.get("krnl-hwid") || "";
     const { data: project } = await supabase.from("projects").select("user_id").eq("id", script.project_id).single();
     await supabase.from("ip_logs").insert({
       user_id: project?.user_id || null,
