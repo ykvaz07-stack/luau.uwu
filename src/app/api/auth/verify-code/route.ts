@@ -3,7 +3,7 @@ import { isDisposableEmail, isPlusAddressedEmail } from "@/lib/anti-abuse";
 
 export async function POST(request: Request) {
   try {
-    const { email, code, password } = await request.json();
+    const { email, code, password, clientIp } = await request.json();
     if (!email?.includes("@") || !code || !password) {
       return NextResponse.json({ error: "Email, code, and password required" }, { status: 400 });
     }
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     );
 
     // IP rate limiting — max 3 signups per 24h from same IP
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const ip = clientIp || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
     const { count, error: countError } = await supabase
       .from("ip_logs")

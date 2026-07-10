@@ -23,6 +23,7 @@ export default function SignupPage() {
   const [checking, setChecking] = useState(true);
   const [hasEmailService, setHasEmailService] = useState(false);
   const [sentTo, setSentTo] = useState("");
+  const [clientIp, setClientIp] = useState("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
 
@@ -38,6 +39,14 @@ export default function SignupPage() {
         const json = await res.json();
         setHasEmailService(json.emailService === true);
       } catch {} finally { setChecking(false); }
+    })();
+    // Detect client IP as fallback
+    (async () => {
+      try {
+        const r = await fetch("https://api.ipify.org?format=json");
+        const d = await r.json();
+        if (d.ip) setClientIp(d.ip);
+      } catch {}
     })();
   }, [router]);
 
@@ -56,7 +65,7 @@ export default function SignupPage() {
         const res = await fetch("/api/auth/send-code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, clientIp }),
         });
         const json = await res.json();
         if (!res.ok) { setError(json.error || "Failed to send code"); setLoading(false); return; }
@@ -76,7 +85,7 @@ export default function SignupPage() {
       const { error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${getSiteUrl()}/auth/callback` },
+        options: { emailRedirectTo: `${getSiteUrl()}/auth/callback${clientIp ? `?clientIp=${clientIp}` : ""}` },
       });
       if (authError) { setError(authError.message); setLoading(false); return; }
       setSentTo(email);
@@ -117,7 +126,7 @@ export default function SignupPage() {
       const res = await fetch("/api/auth/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, code: fullCode }),
+        body: JSON.stringify({ email, password, code: fullCode, clientIp }),
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error || "Invalid code"); setLoading(false); return; }
