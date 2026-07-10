@@ -72,7 +72,16 @@ export default function KeysPage() {
 
     setGenerating(true);
 
+    // Look up the script's project_id so RLS allows the insert
+    const { data: script } = await supabase
+      .from("scripts")
+      .select("project_id")
+      .eq("id", selectedScript)
+      .single();
+    if (!script) { setGenerating(false); return; }
+
     const keysToInsert = Array.from({ length: generateCount }, () => ({
+      project_id: script.project_id,
       script_id: selectedScript,
       user_key: generateRandomKey(),
       auth_expire:

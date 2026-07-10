@@ -108,7 +108,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
   const [purchases, setPurchases] = useState<PurchaseData[]>([]);
-  const [keys, setKeys] = useState<{ id: string; user_key: string; banned: boolean; project_id: string; projects?: { name: string } }[]>([]);
+  const [keys, setKeys] = useState<{ id: string; user_key: string; banned: boolean; project_id: string; identifier?: string; projects?: { name: string } }[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementData[]>([]);
   const [allTickets, setAllTickets] = useState<TicketData[]>([]);
   const [selectedAdminTicket, setSelectedAdminTicket] = useState<TicketData | null>(null);
@@ -511,6 +511,7 @@ export default function AdminPage() {
               <tr className="border-b border-white/5">
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Key</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">Project</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground hidden md:table-cell">HWID</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
               </tr>
             </thead>
@@ -521,11 +522,14 @@ export default function AdminPage() {
                     <code className="text-xs font-mono bg-white/5 px-2 py-1 rounded">{k.user_key.slice(0, 20)}...</code>
                   </td>
                   <td className="py-3 px-4 text-sm text-muted-foreground hidden sm:table-cell">{k.projects?.name ?? "—"}</td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground hidden md:table-cell truncate max-w-[100px]">{k.identifier || "—"}</td>
                   <td className="py-3 px-4">
                     {k.banned ? (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500">Banned</span>
+                    ) : k.identifier ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-500">Locked</span>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-500">Active</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-500">Unassigned</span>
                     )}
                   </td>
                 </tr>
