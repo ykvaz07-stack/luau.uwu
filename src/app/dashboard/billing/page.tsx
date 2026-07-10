@@ -50,6 +50,7 @@ export default function BillingPage() {
   }
 
   const [startingTrial, setStartingTrial] = useState(false);
+  const [trialError, setTrialError] = useState<string | null>(null);
 
   const planDetails = {
     free: { name: "Free", price: "$0", icon: Shield, color: "text-muted-foreground" },
@@ -63,37 +64,24 @@ export default function BillingPage() {
   async function startFreeTrial() {
     if (startingTrial) return;
     setStartingTrial(true);
-    const supabase = createClient();
-    if (!supabase) { setStartingTrial(false); return; }
+    setTrialError(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setStartingTrial(false); return; }
+    try {
+      const res = await fetch("/api/subscriptions/trial", { method: "POST" });
+      const data = await res.json();
 
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      if (!res.ok) {
+        setTrialError(data.error || "Failed to start trial");
+        setStartingTrial(false);
+        return;
+      }
 
-    const existing = await supabase.from("subscriptions").select("id").eq("user_id", user.id).maybeSingle();
-    if (existing.data) {
-      await supabase.from("subscriptions").update({
-        plan: "pro",
-        status: "active",
-        trial_used: true,
-        starts_at: now.toISOString(),
-        expires_at: expiresAt.toISOString(),
-      }).eq("id", existing.data.id);
-    } else {
-      await supabase.from("subscriptions").insert({
-        user_id: user.id,
-        plan: "pro",
-        status: "active",
-        trial_used: true,
-        starts_at: now.toISOString(),
-        expires_at: expiresAt.toISOString(),
-      });
+      setStartingTrial(false);
+      fetchData();
+    } catch {
+      setTrialError("Network error. Please try again.");
+      setStartingTrial(false);
     }
-
-    setStartingTrial(false);
-    fetchData();
   }
 
   return (
@@ -156,14 +144,19 @@ export default function BillingPage() {
                 </div>
               </div>
               {currentPlan === "free" && !subscription?.trial_used && (
-                <button
-                  onClick={startFreeTrial}
-                  disabled={startingTrial}
-                  className="ml-auto inline-flex h-10 items-center justify-center rounded-lg gradient-accent px-4 text-sm font-medium text-white hover:opacity-90 transition-opacity gap-2 disabled:opacity-50"
-                >
-                  {startingTrial ? "Activating..." : "Start Free Trial"}
-                  {!startingTrial && <ArrowRight className="h-4 w-4" />}
-                </button>
+                <div className="ml-auto flex flex-col items-end gap-1">
+                  <button
+                    onClick={startFreeTrial}
+                    disabled={startingTrial}
+                    className="inline-flex h-10 items-center justify-center rounded-lg gradient-accent px-4 text-sm font-medium text-white hover:opacity-90 transition-opacity gap-2 disabled:opacity-50"
+                  >
+                    {startingTrial ? "Activating..." : "Start Free Trial"}
+                    {!startingTrial && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                  {trialError && (
+                    <span className="text-xs text-red-500">{trialError}</span>
+                  )}
+                </div>
               )}
               {currentPlan === "free" && subscription?.trial_used && (
                 <button
