@@ -5,10 +5,6 @@ const nextConfig: NextConfig = {
     "/api/**/*": ["./clyde/dist/**/*"],
   },
 
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   typescript: {
     ignoreBuildErrors: true,
   },
