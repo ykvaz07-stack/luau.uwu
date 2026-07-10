@@ -1,0 +1,92 @@
+import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { NextResponse, type NextRequest } from "next/server";
+
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("placeholder")) {
+    return supabaseResponse;
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
+        supabaseResponse = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isPublicPage =
+    request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname.startsWith("/signup") ||
+    request.nextUrl.pathname.startsWith("/auth") ||
+    request.nextUrl.pathname.startsWith("/api") ||
+    request.nextUrl.pathname === "/";
+
+  if (!user && !isPublicPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
+    logIpBackground(supabaseUrl, supabaseKey, user.id, request);
+  }
+
+  return supabaseResponse;
+}
+
+function logIpBackground(
+  supabaseUrl: string,
+  supabaseKey: string,
+  userId: string,
+  request: NextRequest
+) {
+  try {
+    const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+
+    const userAgent = request.headers.get("user-agent") || "unknown";
+
+    const path = request.nextUrl.pathname;
+    let action = "page_view";
+    if (path.includes("/login")) action = "login";
+    else if (path.includes("/signup")) action = "signup";
+    else if (path.includes("/scripts")) action = "script_view";
+    else if (path.includes("/keys")) action = "key_view";
+
+    supabase.from("ip_logs").insert({
+      user_id: userId,
+      ip_address: ip,
+      user_agent: userAgent,
+      action,
+    });
+  } catch {
+    // IP logging should never break the app
+  }
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*"],
+};
