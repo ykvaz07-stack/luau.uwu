@@ -48,6 +48,7 @@ export default function SupportPage() {
   const [newMessage, setNewMessage] = useState("");
   const [newPriority, setNewPriority] = useState("normal");
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
@@ -116,18 +117,21 @@ export default function SupportPage() {
   async function createTicket() {
     if (!newSubject.trim() || !newMessage.trim()) return;
     setCreating(true);
+    setCreateError(null);
     try {
-      await fetch("/api/tickets", {
+      const res = await fetch("/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject: newSubject.trim(), message: newMessage.trim(), priority: newPriority }),
       });
+      const json = await res.json();
+      if (!res.ok) { setCreateError(json.error || "Failed to create ticket"); setCreating(false); return; }
       setNewSubject("");
       setNewMessage("");
       setNewPriority("normal");
       setShowCreate(false);
       await fetchTickets();
-    } catch {}
+    } catch { setCreateError("Failed to create ticket"); }
     setCreating(false);
   }
 
@@ -289,6 +293,7 @@ export default function SupportPage() {
               </button>
             </div>
             <div className="space-y-4">
+              {createError && <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">{createError}</div>}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">Subject</label>
                 <input

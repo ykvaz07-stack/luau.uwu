@@ -37,6 +37,19 @@ export async function POST(request: Request) {
     }
 
     const supabase = await getAdminClient();
+
+    // Rate limit: 1 ticket per 24h
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+    const { count: recentTickets } = await supabase
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", oneDayAgo);
+
+    if (recentTickets && recentTickets >= 1) {
+      return NextResponse.json({ error: "You can only create 1 ticket per 24 hours" }, { status: 429 });
+    }
+
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
       .insert({ user_id: user.id, subject: subject.trim(), priority: priority || "normal" })
