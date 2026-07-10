@@ -17,7 +17,6 @@ export async function POST(request: Request) {
 
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
     // Anti-exploit check 1: Rate limit - max 1 trial attempt per 24h per IP
     const { count: recentTrialAttempts } = await supabase
@@ -33,16 +32,7 @@ export async function POST(request: Request) {
       }, { status: 429 });
     }
 
-    // Anti-exploit check 2: Account must be at least 1 hour old
-    const createdAt = new Date(user.created_at);
-    if (createdAt > oneHourAgo) {
-      const minsAgo = Math.round((now.getTime() - createdAt.getTime()) / 60000);
-      return NextResponse.json({
-        error: `Account must be at least 1 hour old to start a trial (${minsAgo}m old). Please wait.`
-      }, { status: 403 });
-    }
-
-    // Anti-exploit check 3: Check if this user already used their trial
+    // Anti-exploit check 2: Check if this user already used their trial
     const existing = await supabase
       .from("subscriptions")
       .select("id, plan, trial_used")
@@ -62,7 +52,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Anti-exploit check 4: Browser fingerprint duplicate check
+    // Anti-exploit check 3: Browser fingerprint duplicate check
     if (fingerprint) {
       const { data: fpMatch } = await supabase
         .from("subscriptions")
