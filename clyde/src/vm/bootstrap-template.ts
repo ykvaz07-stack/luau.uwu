@@ -280,12 +280,12 @@ export function generateBootstrap(config: BootstrapConfig): string {
     `for i=1,#s,5 do`,
     `local d,e,f,g,h=${nByte}(s,i,i+4)`,
     `local v=(d-33)*52200625+(e-33)*614125+(f-33)*7225+(g-33)*85+(h-33)`,
-    `o[#o+1]=${nBand}(${nRshift}(v,24),0xFF)`,
-    `o[#o+1]=${nBand}(${nRshift}(v,16),0xFF)`,
-    `o[#o+1]=${nBand}(${nRshift}(v,8),0xFF)`,
-    `o[#o+1]=${nBand}(v,0xFF)`,
+    `o[#o+1]=${nChar}(${nBand}(${nRshift}(v,24),0xFF))`,
+    `o[#o+1]=${nChar}(${nBand}(${nRshift}(v,16),0xFF))`,
+    `o[#o+1]=${nChar}(${nBand}(${nRshift}(v,8),0xFF))`,
+    `o[#o+1]=${nChar}(${nBand}(v,0xFF))`,
     `end`,
-    `return ${nSub}(${nChar}(${nUnpack}(o)),1,${vmOrigLen})`,
+    `return ${nSub}(${nTconcat}(o),1,${vmOrigLen})`,
     `end`,
   ];
   fragments.push({ code: decoderLines.join('\n'), layer: L_FUNCS });
