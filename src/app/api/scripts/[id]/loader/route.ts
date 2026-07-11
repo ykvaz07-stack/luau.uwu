@@ -1,4 +1,12 @@
 import { NextResponse } from "next/server";
+import {
+  lex,
+  parse,
+  obfuscate,
+  encodeStrings,
+  scrambleControlFlow,
+  printChunk,
+} from "../../../../../clyde/dist/index.js";
 
 export async function GET(
   request: Request,
@@ -156,7 +164,15 @@ if not success then
 end
 `;
 
-  return new NextResponse(lua, {
+  // Apply obfuscation
+  const { tokens } = lex(lua);
+  let ast = parse(tokens);
+  ast = encodeStrings(ast, { enabled: true });
+  ast = scrambleControlFlow(ast, { enabled: true });
+  const obfuscated = obfuscate(ast, { renameLocals: true, preserveGlobals: false });
+  const finalLua = printChunk(obfuscated);
+
+  return new NextResponse(finalLua, {
     headers: {
       "Content-Type": "application/octet-stream; charset=utf-8",
       "Cache-Control": "no-store, no-cache, must-revalidate",
