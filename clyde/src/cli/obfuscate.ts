@@ -7,10 +7,20 @@ import { parse } from "../parser/Parser.js";
 import { obfuscate } from "../obfuscator/Obfuscator.js";
 import { encodeStrings } from "../obfuscator/StringEncoder.js";
 import { scrambleControlFlow } from "../obfuscator/ControlFlowScrambler.js";
+import { obfuscateNumbers } from "../obfuscator/NumberObfuscator.js";
+import { flattenControlFlow } from "../obfuscator/ControlFlowFlattener.js";
+import { injectDeadCodePass } from "../obfuscator/DeadCodeInjector.js";
+import { obfuscateFunctionCalls } from "../obfuscator/FunctionCallObfuscator.js";
+import { scrambleTableFields } from "../obfuscator/TableFieldScrambler.js";
+import { injectAntiDebug } from "../obfuscator/AntiDebugInjector.js";
+import { embedWatermark } from "../obfuscator/WatermarkEngine.js";
+import { protectWithMetatables } from "../obfuscator/MetatableProtector.js";
+import { runPipeline } from "../obfuscator/Pipeline.js";
 import { printChunk, printChunkOneLine } from "../obfuscator/Printer.js";
 import { compile } from "../vm/Compiler.js";
 import { generateVM } from "../vm/vm-gen.js";
 import type { VMGenLevel } from "../vm/vm-gen.js";
+import type { ProtectionLevel } from "../obfuscator/Pipeline.js";
 
 const args = process.argv.slice(2);
 const noRename = args.includes("--no-rename");
@@ -21,11 +31,16 @@ const scrambleOpt = args.includes("--scramble");
 const vmOpt = args.includes("--vm");
 const junkOpt = args.includes("--junk");
 const oneLineOpt = args.includes("--one-line");
+const minifyOpt = args.includes("--minify");
 const productionOpt = args.includes("--production");
 const advancedOpt = args.includes("--advanced");
 const maxOpt = args.includes("--max");
+const eliteOpt = args.includes("--elite");
 const compressOpt = args.includes("--compress");
 const noCompressOpt = args.includes("--no-compress");
+const unicodeOpt = args.includes("--unicode");
+const seedArg = args.findIndex((a) => a === "--seed");
+const seed = seedArg >= 0 ? parseInt(args[seedArg + 1], 10) : undefined;
 const outIndex = args.findIndex((a) => a === "-o" || a === "--output");
 const outFile = outIndex >= 0 ? args[outIndex + 1] : null;
 const fileArgs = args.filter((a, i) =>
@@ -50,32 +65,42 @@ if (errors.length > 0) {
 }
 
 let ast = parse(tokens);
-if (encodeStringsOpt && !noEncode) {
-  ast = encodeStrings(ast, { enabled: true });
-}
-if (scrambleOpt) {
-  ast = scrambleControlFlow(ast, { enabled: true });
-}
+
+let protectionLevel: ProtectionLevel = "low";
+if (eliteOpt || maxOpt) protectionLevel = "max";
+else if (advancedOpt || productionOpt) protectionLevel = "high";
+else if (scrambleOpt || junkOpt) protectionLevel = "medium";
+
 let output: string;
 if (vmOpt) {
-  const obfuscated = obfuscate(ast, {
-    renameLocals: !noRename,
-    preserveGlobals: !noPreserve,
+  const pipelineResult = runPipeline(ast, {
+    protectionLevel,
+    seed,
+    renameLocals: noRename ? { renameLocals: false } : undefined,
+    encodeStrings: noEncode ? { enabled: false } : undefined,
   });
-  const chunk = compile(obfuscated);
+  const chunk = compile(pipelineResult);
   const vmDebug = args.includes("--vm-debug");
 
   let level: VMGenLevel = "normal";
   if (vmDebug || args.includes("--no-vm-encode")) level = "debug";
-  if (maxOpt || advancedOpt || productionOpt) level = "max";
+  if (maxOpt || advancedOpt || productionOpt || eliteOpt) level = "max";
 
   output = generateVM(chunk, { level, executorGlobals: level !== "debug", noCompression: noCompressOpt });
 } else {
-  const obfuscated = obfuscate(ast, {
-    renameLocals: !noRename,
-    preserveGlobals: !noPreserve,
-  });
-  output = printChunk(obfuscated);
+  if (eliteOpt) {
+    ast = runPipeline(ast, { protectionLevel: "max", seed, renameLocals: noRename ? { renameLocals: false } : undefined });
+  } else if (advancedOpt || productionOpt) {
+    ast = runPipeline(ast, { protectionLevel: "high", seed });
+  } else if (scrambleOpt || encodeStringsOpt || junkOpt) {
+    if (encodeStringsOpt && !noEncode) ast = encodeStrings(ast, { enabled: true });
+    if (scrambleOpt) ast = scrambleControlFlow(ast, { enabled: true });
+    if (junkOpt) ast = injectDeadCodePass(ast, { enabled: true });
+    ast = obfuscate(ast, { renameLocals: !noRename, preserveGlobals: !noPreserve, useUnicodeNames: unicodeOpt });
+  } else {
+    ast = obfuscate(ast, { renameLocals: !noRename, preserveGlobals: !noPreserve, useUnicodeNames: unicodeOpt });
+  }
+  output = minifyOpt ? printChunk(ast, true) : printChunk(ast);
 }
 
 if (outFile) {

@@ -65,12 +65,7 @@ function injectAntiDebugStatements(loc: SourceLocation, rng: () => number, inten
       vars: [{ name: checkVar, type: undefined }],
       values: [{
         type: "CallExpression",
-        callee: {
-          type: "MemberExpression",
-          object: idExp("pcall", loc),
-          property: undefined as any,
-          loc,
-        },
+        callee: idExp("pcall", loc),
         args: [{
           type: "FunctionExpression",
           params: [],

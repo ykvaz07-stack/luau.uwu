@@ -2,6 +2,39 @@ import { NextResponse } from "next/server";
 import { getAuthUser, getAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
 
+export async function GET() {
+  try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = getAdminClient();
+    const now = new Date().toISOString();
+
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (sub && sub.plan !== "free" && sub.expires_at && sub.expires_at < now) {
+      const { data: updated } = await supabase
+        .from("subscriptions")
+        .update({ plan: "free", status: "expired" })
+        .eq("id", sub.id)
+        .select("*")
+        .single();
+
+      return NextResponse.json({ subscription: updated ?? sub });
+    }
+
+    return NextResponse.json({ subscription: sub ?? null });
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const user = await getAuthUser();

@@ -13,8 +13,17 @@ import type {
   Attribute,
 } from "../ast/types.js";
 
-export function printChunk(chunk: Chunk): string {
-  return chunk.body.map((s) => printStatement(s)).join("\n");
+export function printChunk(chunk: Chunk, minify: boolean = false): string {
+  const output = chunk.body.map((s) => printStatement(s)).join(minify ? "" : "\n");
+  if (!minify) return output;
+  return output
+    .replace(/\s+/g, " ")
+    .replace(/\s*([=+\-*\/%^<>,.~;:()\[\]{}])\s*/g, "$1")
+    .replace(/(\bend\b)\s+(\bend\b)/g, "$1$2")
+    .replace(/(\bthen\b)\s+(\bend\b)/g, "$1$2")
+    .replace(/(\bdo\b)\s+(\bend\b)/g, "$1$2")
+    .replace(/\s+$/, "")
+    .replace(/^(\s*)(.*?)(\s*)$/, "$2");
 }
 
 export function printChunkOneLine(chunk: Chunk): string {

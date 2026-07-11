@@ -2,4 +2,14 @@ export { obfuscate } from "./Obfuscator.js";
 export { encodeStrings } from "./StringEncoder.js";
 export { scrambleControlFlow } from "./ControlFlowScrambler.js";
 export { printChunk, printExpression } from "./Printer.js";
+export { obfuscateNumbers } from "./NumberObfuscator.js";
+export { flattenControlFlow } from "./ControlFlowFlattener.js";
+export { injectDeadCodePass } from "./DeadCodeInjector.js";
+export { obfuscateFunctionCalls } from "./FunctionCallObfuscator.js";
+export { scrambleTableFields } from "./TableFieldScrambler.js";
+export { protectWithMetatables } from "./MetatableProtector.js";
+export { injectAntiDebug } from "./AntiDebugInjector.js";
+export { embedWatermark } from "./WatermarkEngine.js";
+export { MBAEngine } from "./MBAExpressionEngine.js";
+export { runPipeline } from "./Pipeline.js";
 //# sourceMappingURL=index.js.map

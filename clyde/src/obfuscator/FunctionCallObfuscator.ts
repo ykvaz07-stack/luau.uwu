@@ -1,4 +1,4 @@
-import type { Chunk, Statement, LastStatement, Expression, CallExpression } from "../ast/types.js";
+import type { Chunk, Statement, LastStatement, Expression, CallExpression, MethodCallExpression } from "../ast/types.js";
 import type { SourceLocation } from "../tokens.js";
 
 export interface FunctionCallObfuscatorOptions {
@@ -27,13 +27,28 @@ function createRng(seed: number): () => number {
   };
 }
 
+function getCallName(call: CallExpression | MethodCallExpression): string | null {
+  if (call.type === "CallExpression" && call.callee.type === "Identifier") {
+    return call.callee.name;
+  }
+  if (call.type === "MethodCallExpression") {
+    return call.method;
+  }
+  return null;
+}
+
+function getCallArgs(call: CallExpression | MethodCallExpression): Expression[] {
+  return call.args;
+}
+
 function collectFunctionCalls(body: (Statement | LastStatement)[]): { stmt: any; callee: string; args: Expression[]; loc: SourceLocation }[] {
   const calls: { stmt: any; callee: string; args: Expression[]; loc: SourceLocation }[] = [];
   for (const stmt of body) {
     if (stmt.type === "FunctionCallStatement") {
-      const call = stmt.call as CallExpression;
-      if (call.callee.type === "Identifier") {
-        calls.push({ stmt, callee: call.callee.name, args: call.args, loc: stmt.loc });
+      const call = stmt.call as CallExpression | MethodCallExpression;
+      const name = getCallName(call);
+      if (name) {
+        calls.push({ stmt, callee: name, args: getCallArgs(call), loc: stmt.loc });
       }
     }
     if ("body" in stmt && Array.isArray((stmt as any).body)) {
@@ -49,19 +64,23 @@ function collectFunctionCalls(body: (Statement | LastStatement)[]): { stmt: any;
   return calls;
 }
 
-function getCallExpr(call: CallExpression): { name: string; args: Expression[] } | null {
-  if (call.callee.type === "Identifier") {
-    return { name: call.callee.name, args: call.args };
-  }
-  if (call.callee.type === "MemberExpression" && call.callee.object.type === "Identifier") {
-    return { name: `${call.callee.object.name}.${call.callee.property}`, args: call.args };
+function getCallExpr(call: CallExpression | MethodCallExpression): { name: string; args: Expression[] } | null {
+  if (call.type === "CallExpression") {
+    if (call.callee.type === "Identifier") {
+      return { name: call.callee.name, args: call.args };
+    }
+    if (call.callee.type === "MemberExpression" && call.callee.object.type === "Identifier") {
+      return { name: `${call.callee.object.name}.${call.callee.property}`, args: call.args };
+    }
+  } else if (call.type === "MethodCallExpression") {
+    return { name: call.method, args: call.args };
   }
   return null;
 }
 
 function wrapCallThroughTable(
   stmt: Statement | LastStatement,
-  call: CallExpression,
+  call: CallExpression | MethodCallExpression,
   tableName: string,
   idx: number,
   loc: SourceLocation,
@@ -70,7 +89,7 @@ function wrapCallThroughTable(
 
   const wrappedArgs = [
     { type: "IndexExpression", object: idExp(tableName, loc), index: numExp(idx, loc), loc } as Expression,
-    ...call.args,
+    ...getCallArgs(call),
   ];
 
   const wrapperCall: CallExpression = {
@@ -94,7 +113,7 @@ function transformStatement(
   intensity: number
 ): Statement | LastStatement {
   if (stmt.type === "FunctionCallStatement") {
-    const call = stmt.call as CallExpression;
+    const call = stmt.call as CallExpression | MethodCallExpression;
     const info = getCallExpr(call);
     if (info && rng() < intensity) {
       const match = callInfo.find((c) => c.callee === info.name);

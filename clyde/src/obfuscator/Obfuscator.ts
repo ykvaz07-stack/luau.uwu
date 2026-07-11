@@ -15,6 +15,15 @@ const KEYWORDS = new Set([
   "repeat", "return", "then", "true", "until", "while",
 ]);
 
+const UNICODE_CONFUSABLES: string[] = [
+  "\u0430", "\u0435", "\u043E", "\u0440", "\u0441", "\u0443",
+  "\u0445", "\u0456", "\u0458", "\u0432", "\u043D", "\u043A",
+  "\u043C", "\u0433", "\u0434", "\u0437", "\u0438", "\u0439",
+  "\u043B", "\u043F", "\u0442", "\u0444", "\u0447", "\u0448",
+  "\u0449", "\u044A", "\u044B", "\u044C", "\u044D", "\u044E",
+  "\u044F",
+];
+
 const PRESERVED_GLOBALS = new Set([
   "_G", "_ENV", "_VERSION", "game", "workspace", "script", "Players",
   "Instance", "Vector3", "Vector2", "Vector2int16", "Vector3int16",
@@ -80,7 +89,7 @@ const PRESERVED_GLOBALS = new Set([
 ]);
 
 function isValidIdentifier(name: string): boolean {
-  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) && !KEYWORDS.has(name);
+  return /^[a-zA-Z_\u00C0-\u024F][a-zA-Z0-9_\u00C0-\u024F]*$/.test(name) && !KEYWORDS.has(name);
 }
 
 function generateName(index: number): string {
@@ -94,19 +103,38 @@ function generateName(index: number): string {
   return s;
 }
 
+function generateUnicodeName(index: number): string {
+  const base = generateName(index);
+  let result = "";
+  for (let i = 0; i < base.length; i++) {
+    const ch = base[i];
+    const code = ch.charCodeAt(0);
+    if (code >= 97 && code <= 122) {
+      const confusableIndex = code - 97;
+      if (confusableIndex < UNICODE_CONFUSABLES.length) {
+        result += UNICODE_CONFUSABLES[confusableIndex];
+      } else {
+        result += ch;
+      }
+    } else {
+      result += ch;
+    }
+  }
+  return result;
+}
+
 export interface ObfuscatorOptions {
-
   renameLocals?: boolean;
-
   preserveGlobals?: boolean;
-
   seed?: number;
+  useUnicodeNames?: boolean;
 }
 
 const DEFAULT_OPTIONS: Required<ObfuscatorOptions> = {
   renameLocals: true,
   preserveGlobals: true,
   seed: 0,
+  useUnicodeNames: false,
 };
 
 export function obfuscate(ast: Chunk, options: ObfuscatorOptions = {}): Chunk {
@@ -148,7 +176,9 @@ class ScopeManager {
     if (this.opts.preserveGlobals && PRESERVED_GLOBALS.has(name)) return name;
     let newName: string;
     do {
-      newName = generateName(this.nameCounter++);
+      newName = this.opts.useUnicodeNames
+        ? generateUnicodeName(this.nameCounter++)
+        : generateName(this.nameCounter++);
     } while (KEYWORDS.has(newName));
     const prev = this.flat.get(name);
     this.undoStack[this.undoStack.length - 1]!.push({ name, prev });

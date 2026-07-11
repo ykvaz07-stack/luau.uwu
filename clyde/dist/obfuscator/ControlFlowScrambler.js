@@ -1,32 +1,87 @@
-const OPAQUE_PREDICATES = [
-    [7, "*", 7, 49],
-    [1, "+", 1, 2],
-    [15, "*", 15, 225],
-    [100, "%", 7, 2],
-    [12, "*", 12, 144],
-    [3, "^", 2, 9],
-];
+import { MBAEngine } from "./MBAExpressionEngine.js";
 function makeLoc(start, end) {
     return { start, end };
 }
-function createOpaquePredicate(index, loc) {
-    const [a, op, b, c] = OPAQUE_PREDICATES[index % OPAQUE_PREDICATES.length];
-    return {
-        type: "BinaryExpression",
-        operator: "==",
-        left: {
-            type: "BinaryExpression",
-            operator: op,
-            left: { type: "NumberLiteral", value: String(a), loc },
-            right: { type: "NumberLiteral", value: String(b), loc },
-            loc,
-        },
-        right: { type: "NumberLiteral", value: String(c), loc },
-        loc,
-    };
+function transformExpression(exp, engine) {
+    if (exp.type === "BinaryExpression") {
+        return {
+            ...exp,
+            left: transformExpression(exp.left, engine),
+            right: transformExpression(exp.right, engine),
+        };
+    }
+    if (exp.type === "UnaryExpression") {
+        return { ...exp, argument: transformExpression(exp.argument, engine) };
+    }
+    if (exp.type === "CallExpression") {
+        return {
+            ...exp,
+            callee: transformExpression(exp.callee, engine),
+            args: exp.args.map((a) => transformExpression(a, engine)),
+        };
+    }
+    if (exp.type === "MethodCallExpression") {
+        return {
+            ...exp,
+            object: transformExpression(exp.object, engine),
+            args: exp.args.map((a) => transformExpression(a, engine)),
+        };
+    }
+    if (exp.type === "IndexExpression") {
+        return {
+            ...exp,
+            object: transformExpression(exp.object, engine),
+            index: transformExpression(exp.index, engine),
+        };
+    }
+    if (exp.type === "MemberExpression") {
+        return { ...exp, object: transformExpression(exp.object, engine) };
+    }
+    if (exp.type === "TableConstructor") {
+        return {
+            ...exp,
+            fields: exp.fields.map((f) => {
+                if (f.kind === "index")
+                    return { ...f, index: transformExpression(f.index, engine), value: transformExpression(f.value, engine) };
+                return { ...f, value: transformExpression(f.value, engine) };
+            }),
+        };
+    }
+    if (exp.type === "FunctionExpression") {
+        return {
+            ...exp,
+            body: exp.body.map((s) => transformStatement(s, engine)),
+        };
+    }
+    if (exp.type === "ParenExpression") {
+        return { ...exp, expression: transformExpression(exp.expression, engine) };
+    }
+    if (exp.type === "TypeAssertion") {
+        return { ...exp, expression: transformExpression(exp.expression, engine) };
+    }
+    if (exp.type === "IfElseExpression") {
+        return {
+            ...exp,
+            condition: transformExpression(exp.condition, engine),
+            thenExp: transformExpression(exp.thenExp, engine),
+            elseifClauses: exp.elseifClauses.map((c) => ({
+                ...c,
+                condition: transformExpression(c.condition, engine),
+                value: transformExpression(c.value, engine),
+            })),
+            elseExp: transformExpression(exp.elseExp, engine),
+        };
+    }
+    if (exp.type === "StringInterpolation") {
+        return {
+            ...exp,
+            parts: exp.parts.map((p) => typeof p === "string" ? p : transformExpression(p, engine)),
+        };
+    }
+    return exp;
 }
-function wrapWithOpaque(condition, loc, seed) {
-    const opaque = createOpaquePredicate(seed, loc);
+function wrapWithOpaque(condition, loc, engine) {
+    const { condition: opaque } = engine.createOpaquePredicate(loc);
     return {
         type: "BinaryExpression",
         operator: "and",
@@ -35,123 +90,41 @@ function wrapWithOpaque(condition, loc, seed) {
         loc,
     };
 }
-function transformExpression(exp, seed) {
-    if (exp.type === "BinaryExpression") {
-        return {
-            ...exp,
-            left: transformExpression(exp.left, seed),
-            right: transformExpression(exp.right, seed),
-        };
-    }
-    if (exp.type === "UnaryExpression") {
-        return { ...exp, argument: transformExpression(exp.argument, seed) };
-    }
-    if (exp.type === "CallExpression") {
-        return {
-            ...exp,
-            callee: transformExpression(exp.callee, seed),
-            args: exp.args.map((a) => transformExpression(a, seed)),
-        };
-    }
-    if (exp.type === "MethodCallExpression") {
-        return {
-            ...exp,
-            object: transformExpression(exp.object, seed),
-            args: exp.args.map((a) => transformExpression(a, seed)),
-        };
-    }
-    if (exp.type === "IndexExpression") {
-        return {
-            ...exp,
-            object: transformExpression(exp.object, seed),
-            index: transformExpression(exp.index, seed),
-        };
-    }
-    if (exp.type === "MemberExpression") {
-        return { ...exp, object: transformExpression(exp.object, seed) };
-    }
-    if (exp.type === "TableConstructor") {
-        return {
-            ...exp,
-            fields: exp.fields.map((f) => {
-                if (f.kind === "index")
-                    return { ...f, index: transformExpression(f.index, seed), value: transformExpression(f.value, seed) };
-                return { ...f, value: transformExpression(f.value, seed) };
-            }),
-        };
-    }
-    if (exp.type === "FunctionExpression") {
-        return {
-            ...exp,
-            body: exp.body.map((s) => transformStatement(s, seed)),
-        };
-    }
-    if (exp.type === "ParenExpression") {
-        return { ...exp, expression: transformExpression(exp.expression, seed) };
-    }
-    if (exp.type === "TypeAssertion") {
-        return { ...exp, expression: transformExpression(exp.expression, seed) };
-    }
-    if (exp.type === "IfElseExpression") {
-        return {
-            ...exp,
-            condition: transformExpression(exp.condition, seed),
-            thenExp: transformExpression(exp.thenExp, seed),
-            elseifClauses: exp.elseifClauses.map((c) => ({
-                ...c,
-                condition: transformExpression(c.condition, seed),
-                value: transformExpression(c.value, seed),
-            })),
-            elseExp: transformExpression(exp.elseExp, seed),
-        };
-    }
-    if (exp.type === "StringInterpolation") {
-        return {
-            ...exp,
-            parts: exp.parts.map((p) => typeof p === "string" ? p : transformExpression(p, seed)),
-        };
-    }
-    return exp;
-}
-function transformStatement(stmt, seed) {
+function transformStatement(stmt, engine) {
     switch (stmt.type) {
         case "IfStatement": {
-            seed.value++;
-            const newCondition = wrapWithOpaque(transformExpression(stmt.condition, seed), stmt.condition.loc, seed.value);
+            const newCondition = wrapWithOpaque(transformExpression(stmt.condition, engine), stmt.condition.loc, engine);
             return {
                 ...stmt,
                 condition: newCondition,
-                thenBody: stmt.thenBody.map((s) => transformStatement(s, seed)),
+                thenBody: stmt.thenBody.map((s) => transformStatement(s, engine)),
                 elseifClauses: stmt.elseifClauses.map((c) => {
-                    seed.value++;
                     return {
-                        condition: wrapWithOpaque(transformExpression(c.condition, seed), c.condition.loc, seed.value),
-                        body: c.body.map((s) => transformStatement(s, seed)),
+                        condition: wrapWithOpaque(transformExpression(c.condition, engine), c.condition.loc, engine),
+                        body: c.body.map((s) => transformStatement(s, engine)),
                     };
                 }),
-                elseBody: stmt.elseBody?.map((s) => transformStatement(s, seed)),
+                elseBody: stmt.elseBody?.map((s) => transformStatement(s, engine)),
             };
         }
         case "WhileStatement": {
-            seed.value++;
             return {
                 ...stmt,
-                condition: wrapWithOpaque(transformExpression(stmt.condition, seed), stmt.condition.loc, seed.value),
-                body: stmt.body.map((s) => transformStatement(s, seed)),
+                condition: wrapWithOpaque(transformExpression(stmt.condition, engine), stmt.condition.loc, engine),
+                body: stmt.body.map((s) => transformStatement(s, engine)),
             };
         }
         case "RepeatStatement": {
-            seed.value++;
             return {
                 ...stmt,
-                body: stmt.body.map((s) => transformStatement(s, seed)),
-                condition: wrapWithOpaque(transformExpression(stmt.condition, seed), stmt.condition.loc, seed.value),
+                body: stmt.body.map((s) => transformStatement(s, engine)),
+                condition: wrapWithOpaque(transformExpression(stmt.condition, engine), stmt.condition.loc, engine),
             };
         }
         case "LocalStatement":
             return {
                 ...stmt,
-                values: stmt.values?.map((e) => transformExpression(e, seed)),
+                values: stmt.values?.map((e) => transformExpression(e, engine)),
             };
         case "AssignmentStatement":
             return {
@@ -162,12 +135,12 @@ function transformStatement(stmt, seed) {
                     if (v.type === "IndexExpression")
                         return {
                             ...v,
-                            object: transformExpression(v.object, seed),
-                            index: transformExpression(v.index, seed),
+                            object: transformExpression(v.object, engine),
+                            index: transformExpression(v.index, engine),
                         };
-                    return { ...v, object: transformExpression(v.object, seed) };
+                    return { ...v, object: transformExpression(v.object, engine) };
                 }),
-                values: stmt.values.map((e) => transformExpression(e, seed)),
+                values: stmt.values.map((e) => transformExpression(e, engine)),
             };
         case "CompoundAssignmentStatement":
             return {
@@ -176,36 +149,36 @@ function transformStatement(stmt, seed) {
                     ? stmt.var
                     : {
                         ...stmt.var,
-                        object: transformExpression(stmt.var.object, seed),
+                        object: transformExpression(stmt.var.object, engine),
                         ...(stmt.var.type === "IndexExpression" && {
-                            index: transformExpression(stmt.var.index, seed),
+                            index: transformExpression(stmt.var.index, engine),
                         }),
                     },
-                value: transformExpression(stmt.value, seed),
+                value: transformExpression(stmt.value, engine),
             };
         case "FunctionCallStatement":
             return {
                 ...stmt,
-                call: transformExpression(stmt.call, seed),
+                call: transformExpression(stmt.call, engine),
             };
         case "ReturnStatement":
             return {
                 ...stmt,
-                values: stmt.values?.map((e) => transformExpression(e, seed)),
+                values: stmt.values?.map((e) => transformExpression(e, engine)),
             };
         case "ForNumericStatement":
             return {
                 ...stmt,
-                start: transformExpression(stmt.start, seed),
-                end: transformExpression(stmt.end, seed),
-                step: stmt.step ? transformExpression(stmt.step, seed) : undefined,
-                body: stmt.body.map((s) => transformStatement(s, seed)),
+                start: transformExpression(stmt.start, engine),
+                end: transformExpression(stmt.end, engine),
+                step: stmt.step ? transformExpression(stmt.step, engine) : undefined,
+                body: stmt.body.map((s) => transformStatement(s, engine)),
             };
         case "ForInStatement":
             return {
                 ...stmt,
-                iter: stmt.iter.map((e) => transformExpression(e, seed)),
-                body: stmt.body.map((s) => transformStatement(s, seed)),
+                iter: stmt.iter.map((e) => transformExpression(e, engine)),
+                body: stmt.body.map((s) => transformStatement(s, engine)),
             };
         case "LocalFunctionStatement":
         case "FunctionStatement":
@@ -213,12 +186,12 @@ function transformStatement(stmt, seed) {
         case "ExportTypeFunctionStatement":
             return {
                 ...stmt,
-                body: stmt.body.map((s) => transformStatement(s, seed)),
+                body: stmt.body.map((s) => transformStatement(s, engine)),
             };
         case "DoStatement":
             return {
                 ...stmt,
-                body: stmt.body.map((s) => transformStatement(s, seed)),
+                body: stmt.body.map((s) => transformStatement(s, engine)),
             };
         default:
             return stmt;
@@ -226,12 +199,13 @@ function transformStatement(stmt, seed) {
 }
 export function scrambleControlFlow(ast, options = {}) {
     const enabled = options.enabled !== false;
-    const seed = { value: options.seed ?? 0 };
     if (!enabled)
         return ast;
+    const seed = options.seed ?? 0;
+    const engine = new MBAEngine({ seed });
     return {
         ...ast,
-        body: ast.body.map((s) => transformStatement(s, seed)),
+        body: ast.body.map((s) => transformStatement(s, engine)),
     };
 }
 //# sourceMappingURL=ControlFlowScrambler.js.map

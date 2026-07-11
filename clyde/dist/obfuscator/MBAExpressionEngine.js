@@ -1,0 +1,266 @@
+function makeLoc(start, end) {
+    return { start, end };
+}
+function cloneLoc(loc) {
+    return loc ?? { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };
+}
+function intExp(value, loc) {
+    return { type: "NumberLiteral", value: String(value), raw: String(value), loc };
+}
+function binExp(left, operator, right, loc) {
+    return { type: "BinaryExpression", operator, left, right, loc };
+}
+export class MBAEngine {
+    rng;
+    seed;
+    constructor(config = {}) {
+        this.seed = config.seed ?? 0;
+        this.rng = this.createRng(this.seed);
+    }
+    createRng(seed) {
+        let s = seed;
+        return () => {
+            s = (s * 1103515245 + 12345) & 0x7fffffff;
+            return s / 0x7fffffff;
+        };
+    }
+    randInt(min, max) {
+        return min + Math.floor(this.rng() * (max - min + 1));
+    }
+    obfuscateNumber(n, loc) {
+        const l = cloneLoc(loc);
+        const variant = this.randInt(0, 8);
+        switch (variant) {
+            case 0: {
+                const a = this.randInt(1, Math.max(1, Math.abs(n) + 100));
+                return binExp(intExp(a, l), "+", intExp(n - a, l), l);
+            }
+            case 1: {
+                const b = this.randInt(1, 500);
+                return binExp(intExp(n + b, l), "-", intExp(b, l), l);
+            }
+            case 2: {
+                const a = this.randInt(2, 20);
+                const rem = ((n % a) + a) % a;
+                const q = (n - rem) / a;
+                if (q < 0) {
+                    const pad = this.randInt(100, 1000);
+                    return binExp(intExp(n + pad, l), "-", intExp(pad, l), l);
+                }
+                const expr = binExp(intExp(a, l), "*", intExp(q, l), l);
+                return binExp(expr, "+", intExp(rem, l), l);
+            }
+            case 3: {
+                const a = this.randInt(2, 10);
+                const b = Math.ceil(Math.abs(n) / a) + this.randInt(1, 50);
+                const c = a * b - n;
+                const expr = binExp(intExp(a, l), "*", intExp(b, l), l);
+                return binExp(expr, "-", intExp(c, l), l);
+            }
+            case 4: {
+                const a = this.randInt(1, 50);
+                const b = this.randInt(1, 50);
+                const c = this.randInt(1, 50);
+                const d = this.randInt(1, 50);
+                const left = binExp(intExp(a, l), "*", intExp(b, l), l);
+                const right = binExp(intExp(c, l), "*", intExp(d, l), l);
+                const total = a * b - c * d;
+                const diff = n - total;
+                if (diff >= 0)
+                    return binExp(binExp(left, "-", right, l), "+", intExp(diff, l), l);
+                return binExp(binExp(left, "-", right, l), "-", intExp(-diff, l), l);
+            }
+            case 5: {
+                const x = this.randInt(1, 100);
+                const y = this.randInt(1, 100);
+                const target = n - (x + y);
+                const sum = binExp(intExp(x, l), "+", intExp(y, l), l);
+                if (target >= 0)
+                    return binExp(sum, "+", intExp(target, l), l);
+                return binExp(sum, "-", intExp(-target, l), l);
+            }
+            case 6: {
+                const a = this.randInt(2, 15);
+                const b = this.randInt(2, 15);
+                const prod = a * b;
+                const diff = n - prod;
+                if (diff >= 0) {
+                    const expr = binExp(intExp(a, l), "*", intExp(b, l), l);
+                    return binExp(expr, "+", intExp(diff, l), l);
+                }
+                const expr = binExp(intExp(a, l), "*", intExp(b, l), l);
+                return binExp(expr, "-", intExp(-diff, l), l);
+            }
+            default: {
+                const a = this.randInt(2, 12);
+                const pad = this.randInt(1, 100);
+                const total = n + pad;
+                const q = Math.floor(total / a);
+                const r = total - a * q;
+                const expr = binExp(intExp(a, l), "*", intExp(q, l), l);
+                return binExp(binExp(expr, "+", intExp(r, l), l), "-", intExp(pad, l), l);
+            }
+        }
+    }
+    obfuscateNumberWithBitops(n, loc) {
+        const l = cloneLoc(loc);
+        const variant = this.randInt(0, 3);
+        switch (variant) {
+            case 0: {
+                const a = this.randInt(1, 64);
+                const b = 1 << a;
+                const mask = (1 << a) - 1;
+                const low = n & mask;
+                const high = (n >> a) & ((1 << (32 - a)) - 1);
+                const shifted = binExp(intExp(high, l), "<<", intExp(a, l), l);
+                return binExp(shifted, "|", intExp(low, l), l);
+            }
+            case 1: {
+                const a = this.randInt(1, 31);
+                const b = n ^ (1 << a);
+                return binExp(intExp(b, l), "~", intExp(1 << a, l), l);
+            }
+            case 2: {
+                const a = this.randInt(1, 100);
+                const b = this.randInt(1, 100);
+                const lhs = binExp(intExp(a, l), "+", intExp(b, l), l);
+                const rhs = binExp(intExp(a, l), "-", intExp(b, l), l);
+                const prod = a + b;
+                const diff = a - b;
+                const total = prod * diff;
+                const target = n - total;
+                const expr = binExp(lhs, "*", rhs, l);
+                if (target >= 0)
+                    return binExp(expr, "+", intExp(target, l), l);
+                return binExp(expr, "-", intExp(-target, l), l);
+            }
+            default: {
+                const a = this.randInt(1, 255);
+                const b = this.randInt(1, 255);
+                const axb = a ^ b;
+                return binExp(binExp(intExp(n ^ axb, l), "~", intExp(a, l), l), "~", intExp(b, l), l);
+            }
+        }
+    }
+    createOpaquePredicate(loc) {
+        const l = cloneLoc(loc);
+        const isTrue = this.rng() > 0.5;
+        const variant = this.randInt(0, 7);
+        switch (variant) {
+            case 0: {
+                const a = this.randInt(2, 100);
+                const b = this.randInt(2, 100);
+                const c = isTrue ? a + b : a + b + this.randInt(1, 50);
+                return {
+                    condition: binExp(binExp(intExp(a, l), "+", intExp(b, l), l), "==", intExp(c, l), l),
+                    expected: isTrue,
+                };
+            }
+            case 1: {
+                const a = this.randInt(2, 50);
+                const b = this.randInt(2, 50);
+                const c = isTrue ? a * b : a * b + this.randInt(1, 100);
+                return {
+                    condition: binExp(binExp(intExp(a, l), "*", intExp(b, l), l), "==", intExp(c, l), l),
+                    expected: isTrue,
+                };
+            }
+            case 2: {
+                const a = this.randInt(10, 1000);
+                const b = this.randInt(2, 50);
+                const rem = a % b;
+                const c = isTrue ? rem : rem + this.randInt(1, b - 1);
+                return {
+                    condition: binExp(binExp(intExp(a, l), "%", intExp(b, l), l), "==", intExp(c, l), l),
+                    expected: isTrue,
+                };
+            }
+            case 3: {
+                const base = this.randInt(2, 20);
+                const exp = this.randInt(2, 6);
+                const result = Math.pow(base, exp);
+                const c = isTrue ? result : result + this.randInt(1, 100);
+                return {
+                    condition: binExp(binExp(intExp(base, l), "^", intExp(exp, l), l), "==", intExp(c, l), l),
+                    expected: isTrue,
+                };
+            }
+            case 4: {
+                const a = this.randInt(2, 200);
+                const b = this.randInt(2, 200);
+                const axb = a ^ b;
+                const c = isTrue ? axb : axb ^ this.randInt(1, 255);
+                return {
+                    condition: binExp(binExp(intExp(a, l), "~", intExp(b, l), l), "==", intExp(c, l), l),
+                    expected: isTrue,
+                };
+            }
+            case 5: {
+                const a = this.randInt(1, 50);
+                const b = this.randInt(1, 50);
+                const c = this.randInt(1, 50);
+                const lhs = binExp(intExp(a, l), "+", intExp(b, l), l);
+                const rhs = binExp(intExp(c, l), "*", intExp(2, l), l);
+                const target = isTrue ? a + b : a + b + this.randInt(1, 20);
+                return {
+                    condition: binExp(lhs, "==", binExp(rhs, "+", intExp(target - 2 * c, l), l), l),
+                    expected: isTrue,
+                };
+            }
+            case 6: {
+                const a = this.randInt(20, 100);
+                const b = this.randInt(20, 100);
+                const top = binExp(intExp(a, l), ">", intExp(b, l), l);
+                const bot = binExp(intExp(b, l), ">", intExp(a, l), l);
+                if (isTrue) {
+                    return {
+                        condition: binExp(top, "or", bot, l),
+                        expected: true,
+                    };
+                }
+                return {
+                    condition: binExp(top, "and", bot, l),
+                    expected: false,
+                };
+            }
+            default: {
+                const a = this.randInt(1, 10);
+                const b = this.randInt(1, 10);
+                const lhs = binExp(intExp(a, l), "^", intExp(this.randInt(2, 4), l), l);
+                const rhs = binExp(intExp(b, l), "^", intExp(this.randInt(2, 4), l), l);
+                const val1 = Math.pow(a, 2);
+                const val2 = Math.pow(b, 2);
+                const diff = Math.abs(val1 - val2);
+                const target = isTrue ? lhs : rhs;
+                return {
+                    condition: binExp(binExp(lhs, ">", rhs, l), "and", binExp(intExp(diff, l), ">", intExp(0, l), l), l),
+                    expected: isTrue,
+                };
+            }
+        }
+    }
+    createAntiDSEPredicate(loc) {
+        const l = cloneLoc(loc);
+        const variant = this.randInt(0, 4);
+        switch (variant) {
+            case 0: {
+                const a = this.randInt(1, 3);
+                const b = this.randInt(1, 3);
+                return binExp(binExp(intExp(a, l), "+", intExp(b, l), l), "==", binExp(intExp(Math.sqrt(a * a + 2 * a * b + b * b), l), "+", intExp(0, l), l), l);
+            }
+            case 1: {
+                const a = this.randInt(1, 5000);
+                const b = this.randInt(1, 5000);
+                return binExp(binExp(intExp(a, l), "%", intExp(b, l), l), "==", binExp(intExp(a, l), "-", binExp(intExp(Math.floor(a / b), l), "*", intExp(b, l), l), l), l);
+            }
+            default: {
+                const a = this.randInt(3, 15);
+                const b = this.randInt(3, 15);
+                const term1 = binExp(intExp(a, l), "+", intExp(b, l), l);
+                const term2 = binExp(intExp(a * a, l), "-", binExp(intExp(b * b, l), "/", intExp(a - b || 1, l), l), l);
+                return binExp(term1, "==", term2, l);
+            }
+        }
+    }
+}
+//# sourceMappingURL=MBAExpressionEngine.js.map

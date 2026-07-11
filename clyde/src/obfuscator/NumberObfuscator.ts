@@ -100,9 +100,6 @@ function transformExpression(exp: Expression, engine: MBAEngine, useBitops: bool
       ),
     };
   }
-  if (exp.type === "ParenExpression") {
-    return { ...exp, expression: transformExpression(exp.expression, engine, useBitops) };
-  }
   return exp;
 }
 

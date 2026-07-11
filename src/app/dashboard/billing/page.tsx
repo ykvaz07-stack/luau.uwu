@@ -44,7 +44,15 @@ export default function BillingPage() {
       supabase.from("purchases").select("*").order("created_at", { ascending: false }),
     ]);
 
-    setSubscription(subRes.data);
+    let subData = subRes.data;
+
+    const checkRes = await fetch("/api/subscriptions/trial");
+    if (checkRes.ok) {
+      const checkData = await checkRes.json();
+      if (checkData.subscription) subData = checkData.subscription;
+    }
+
+    setSubscription(subData);
     setPurchases(purchaseRes.data ?? []);
     setLoading(false);
   }

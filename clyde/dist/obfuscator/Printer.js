@@ -1,5 +1,15 @@
-export function printChunk(chunk) {
-    return chunk.body.map((s) => printStatement(s)).join("\n");
+export function printChunk(chunk, minify = false) {
+    const output = chunk.body.map((s) => printStatement(s)).join(minify ? "" : "\n");
+    if (!minify)
+        return output;
+    return output
+        .replace(/\s+/g, " ")
+        .replace(/\s*([=+\-*\/%^<>,.~;:()\[\]{}])\s*/g, "$1")
+        .replace(/(\bend\b)\s+(\bend\b)/g, "$1$2")
+        .replace(/(\bthen\b)\s+(\bend\b)/g, "$1$2")
+        .replace(/(\bdo\b)\s+(\bend\b)/g, "$1$2")
+        .replace(/\s+$/, "")
+        .replace(/^(\s*)(.*?)(\s*)$/, "$2");
 }
 export function printChunkOneLine(chunk) {
     const output = chunk.body.map((s) => printStatement(s)).join("\n");

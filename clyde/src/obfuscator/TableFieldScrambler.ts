@@ -38,7 +38,7 @@ function scrambleTable(t: TableConstructor, rng: () => number, addFake: boolean)
     const fakeField = {
       kind: "index" as const,
       index: numExp(fakeKey, t.loc),
-      value: { type: "NilLiteral", loc: t.loc },
+      value: { type: "NilLiteral", loc: t.loc } as Expression,
     };
     const insertPos = Math.floor(rng() * (fields.length + 1));
     fields.splice(insertPos, 0, fakeField);
@@ -90,9 +90,6 @@ function transformExpression(exp: Expression, rng: () => number, addFake: boolea
       ...exp,
       body: exp.body.map((s) => transformStatement(s, rng, addFake)),
     };
-  }
-  if (exp.type === "TableConstructor") {
-    return scrambleTable(exp, rng, addFake);
   }
   if (exp.type === "ParenExpression") {
     return { ...exp, expression: transformExpression(exp.expression, rng, addFake) };
