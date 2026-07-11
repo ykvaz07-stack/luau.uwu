@@ -1,0 +1,1 @@
+{"version":3,"file":"ControlFlowScrambler.d.ts","sourceRoot":"","sources":["../../src/obfuscator/ControlFlowScrambler.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,KAAK,EAQN,MAAM,iBAAiB,CAAC;AAmOzB,MAAM,WAAW,2BAA2B;IAC1C,IAAI,CAAC,EAAE,MAAM,CAAC;IACd,OAAO,CAAC,EAAE,OAAO,CAAC;CACnB;AAED,wBAAgB,mBAAmB,CACjC,GAAG,EAAE,KAAK,EACV,OAAO,GAAE,2BAAgC,GACxC,KAAK,CAWP"}

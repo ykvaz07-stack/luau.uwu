@@ -44,5 +44,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# clyde build output
-clyde/dist/
+

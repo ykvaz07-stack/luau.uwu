@@ -1,0 +1,595 @@
+function makeLoc(start, end) {
+    return { start, end };
+}
+function createRng(seed) {
+    let s = seed;
+    return () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+    };
+}
+const ENCRYPTION_STRATEGIES = ["xor", "add-rotate", "xor-chain", "sbox"];
+function encodeStringXor(str, key) {
+    const result = [];
+    for (let i = 0; i < str.length; i++) {
+        result.push(str.charCodeAt(i) ^ key);
+    }
+    return result;
+}
+function encodeStringXorChain(str, keys) {
+    const result = [];
+    for (let i = 0; i < str.length; i++) {
+        const k = keys[i % keys.length];
+        result.push(str.charCodeAt(i) ^ k);
+    }
+    return result;
+}
+function encodeStringAddRotate(str, key) {
+    const result = [];
+    for (let i = 0; i < str.length; i++) {
+        result.push((str.charCodeAt(i) + key + i) & 0xff);
+    }
+    return result;
+}
+function decodeStringAddRotate(bytes, key) {
+    let s = "";
+    for (let i = 0; i < bytes.length; i++) {
+        s += String.fromCharCode((bytes[i] - key - i) & 0xff);
+    }
+    return s;
+}
+function encodeStringSbox(str, sbox) {
+    const result = [];
+    for (let i = 0; i < str.length; i++) {
+        result.push(sbox[str.charCodeAt(i) & 0xff]);
+    }
+    return result;
+}
+function generateSbox(rng) {
+    const sbox = Array.from({ length: 256 }, (_, i) => i);
+    for (let i = 255; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [sbox[i], sbox[j]] = [sbox[j], sbox[i]];
+    }
+    return sbox;
+}
+function fragmentString(str, rng) {
+    if (str.length <= 2)
+        return { fragments: [encodeStringXor(str, 0x5A)], order: [0] };
+    const numFrags = Math.min(str.length, 2 + Math.floor(rng() * Math.min(4, str.length - 1)));
+    const fragSize = Math.floor(str.length / numFrags);
+    const fragments = [];
+    let pos = 0;
+    for (let i = 0; i < numFrags; i++) {
+        const size = i < numFrags - 1 ? fragSize + (Math.floor(rng() * 3) - 1) : str.length - pos;
+        const frag = str.slice(pos, pos + Math.max(1, size));
+        fragments.push(encodeStringXor(frag, 0x5A));
+        pos += frag.length;
+    }
+    const order = Array.from({ length: numFrags }, (_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+    }
+    return { fragments, order };
+}
+function makeDecodeCall(bytes, key, loc, decoderName, strategy = "xor") {
+    const tableFields = bytes.map((b) => ({
+        kind: "value",
+        value: {
+            type: "NumberLiteral",
+            value: String(b),
+            loc,
+        },
+    }));
+    const table = {
+        type: "TableConstructor",
+        fields: tableFields,
+        loc,
+    };
+    const args = [table];
+    if (strategy === "xor") {
+        args.push({ type: "NumberLiteral", value: String(key), loc });
+        args.push({ type: "StringLiteral", value: "xor", loc });
+    }
+    else if (strategy === "add-rotate") {
+        args.push({ type: "NumberLiteral", value: String(key), loc });
+        args.push({ type: "StringLiteral", value: "add", loc });
+    }
+    else if (strategy === "sbox") {
+        args.push({ type: "NumberLiteral", value: String(key), loc });
+        args.push({ type: "StringLiteral", value: "sbox", loc });
+    }
+    else {
+        args.push({ type: "NumberLiteral", value: String(key), loc });
+    }
+    return {
+        type: "CallExpression",
+        callee: {
+            type: "Identifier",
+            name: decoderName,
+            loc,
+        },
+        args,
+        loc,
+    };
+}
+function makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName) {
+    const cacheName = `_c_${Math.random().toString(36).substring(2, 6)}`;
+    const cacheStmt = {
+        type: "LocalStatement",
+        vars: [{ name: cacheName, type: undefined }],
+        values: [{ type: "TableConstructor", fields: [], loc }],
+        loc,
+    };
+    const sboxTableStmts = [];
+    for (let si = 0; si < sboxTables.length; si++) {
+        const sboxName = `_sb${si}_${Math.random().toString(36).substring(2, 4)}`;
+        const sboxFields = sboxTables[si].map((b) => ({
+            kind: "value",
+            value: { type: "NumberLiteral", value: String(b), loc },
+        }));
+        sboxTableStmts.push({
+            type: "LocalStatement",
+            vars: [{ name: sboxName, type: undefined }],
+            values: [{ type: "TableConstructor", fields: sboxFields, loc }],
+            loc,
+        });
+    }
+    const sboxNames = sboxTableStmts.map(() => `_sb${Math.random().toString(36).substring(2, 4)}`);
+    const decoderFuncBody = [];
+    decoderFuncBody.push({
+        type: "LocalStatement",
+        vars: [{ name: "t", type: undefined }],
+        values: [{ type: "Identifier", name: "t", loc }],
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "LocalStatement",
+        vars: [{ name: "k", type: undefined }],
+        values: [{ type: "Identifier", name: "k", loc }],
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "LocalStatement",
+        vars: [{ name: "mode", type: undefined }],
+        values: [{ type: "Identifier", name: "mode", loc }],
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "IfStatement",
+        condition: {
+            type: "IndexExpression",
+            object: { type: "Identifier", name: cacheName, loc },
+            index: { type: "Identifier", name: "t", loc },
+            loc,
+        },
+        thenBody: [
+            {
+                type: "ReturnStatement",
+                values: [
+                    {
+                        type: "IndexExpression",
+                        object: { type: "Identifier", name: cacheName, loc },
+                        index: { type: "Identifier", name: "t", loc },
+                        loc,
+                    },
+                ],
+                loc,
+            },
+        ],
+        elseifClauses: [],
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "LocalStatement",
+        vars: [{ name: "s", type: undefined }],
+        values: [{ type: "TableConstructor", fields: [], loc }],
+        loc,
+    });
+    const iterBody = [
+        {
+            type: "LocalStatement",
+            vars: [{ name: "ch", type: undefined }],
+            values: [
+                {
+                    type: "IndexExpression",
+                    object: { type: "Identifier", name: "t", loc },
+                    index: { type: "Identifier", name: "i", loc },
+                    loc,
+                },
+            ],
+            loc,
+        },
+    ];
+    const ifSboxMode = {
+        type: "IfStatement",
+        condition: {
+            type: "BinaryExpression",
+            operator: "==",
+            left: { type: "Identifier", name: "mode", loc },
+            right: { type: "StringLiteral", value: "sbox", loc },
+            loc,
+        },
+        thenBody: [
+            {
+                type: "AssignmentStatement",
+                vars: [{ type: "IndexExpression", object: { type: "Identifier", name: "s", loc }, index: { type: "Identifier", name: "i", loc }, loc }],
+                values: [{
+                        type: "CallExpression",
+                        callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "char", loc },
+                        args: [{
+                                type: "IndexExpression",
+                                object: { type: "Identifier", name: sboxNames[0] || "_sb", loc },
+                                index: { type: "Identifier", name: "ch", loc },
+                                loc,
+                            }],
+                        loc,
+                    }],
+                loc,
+            },
+        ],
+        elseifClauses: [
+            {
+                condition: {
+                    type: "BinaryExpression",
+                    operator: "==",
+                    left: { type: "Identifier", name: "mode", loc },
+                    right: { type: "StringLiteral", value: "add", loc },
+                    loc,
+                },
+                body: [
+                    {
+                        type: "AssignmentStatement",
+                        vars: [{ type: "IndexExpression", object: { type: "Identifier", name: "s", loc }, index: { type: "Identifier", name: "i", loc }, loc }],
+                        values: [{
+                                type: "CallExpression",
+                                callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "char", loc },
+                                args: [{
+                                        type: "BinaryExpression",
+                                        operator: "-",
+                                        left: { type: "Identifier", name: "ch", loc },
+                                        right: { type: "BinaryExpression", operator: "+", left: { type: "Identifier", name: "k", loc }, right: { type: "Identifier", name: "i", loc }, loc },
+                                        loc,
+                                    }],
+                                loc,
+                            }],
+                        loc,
+                    },
+                ],
+            },
+        ],
+        elseBody: [
+            {
+                type: "AssignmentStatement",
+                vars: [{ type: "IndexExpression", object: { type: "Identifier", name: "s", loc }, index: { type: "Identifier", name: "i", loc }, loc }],
+                values: [{
+                        type: "CallExpression",
+                        callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "char", loc },
+                        args: [{
+                                type: "CallExpression",
+                                callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "bxor", loc },
+                                args: [{ type: "Identifier", name: "ch", loc }, { type: "Identifier", name: "k", loc }],
+                                loc,
+                            }],
+                        loc,
+                    }],
+                loc,
+            },
+        ],
+        loc,
+    };
+    iterBody.push(ifSboxMode);
+    decoderFuncBody.push({
+        type: "ForNumericStatement",
+        var: { type: "Identifier", name: "i", loc },
+        start: { type: "NumberLiteral", value: "1", loc },
+        end: {
+            type: "UnaryExpression",
+            operator: "#",
+            argument: { type: "Identifier", name: "t", loc },
+            loc,
+        },
+        body: iterBody,
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "LocalStatement",
+        vars: [{ name: "res", type: undefined }],
+        values: [{
+                type: "CallExpression",
+                callee: { type: "MemberExpression", object: { type: "Identifier", name: "table", loc }, property: "concat", loc },
+                args: [{ type: "Identifier", name: "s", loc }],
+                loc,
+            }],
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "AssignmentStatement",
+        vars: [{ type: "IndexExpression", object: { type: "Identifier", name: cacheName, loc }, index: { type: "Identifier", name: "t", loc }, loc }],
+        values: [{ type: "Identifier", name: "res", loc }],
+        loc,
+    });
+    decoderFuncBody.push({
+        type: "ReturnStatement",
+        values: [{ type: "Identifier", name: "res", loc }],
+        loc,
+    });
+    const decoderFunc = {
+        type: "LocalStatement",
+        vars: [{ name: decoderName, type: undefined }],
+        values: [{
+                type: "FunctionExpression",
+                params: [
+                    { type: "Param", name: "t", variadic: false, loc },
+                    { type: "Param", name: "k", variadic: false, loc },
+                    { type: "Param", name: "mode", variadic: false, loc },
+                ],
+                body: decoderFuncBody,
+                loc,
+            }],
+        loc,
+    };
+    return [...sboxTableStmts, cacheStmt, decoderFunc];
+}
+function transformExpression(exp, keys, strategies, decoderName, rng, useFragmentation) {
+    if (exp.type === "StringLiteral") {
+        if (exp.value === "")
+            return exp;
+        const strategy = strategies[Math.floor(rng() * strategies.length)];
+        const key = keys[Math.floor(rng() * keys.length)];
+        if (useFragmentation && exp.value.length > 4 && rng() > 0.5) {
+            const { fragments, order } = fragmentString(exp.value, rng);
+            const fragTables = fragments.map((frag) => {
+                const fields = frag.map((b) => ({
+                    kind: "value",
+                    value: { type: "NumberLiteral", value: String(b), loc: exp.loc },
+                }));
+                return {
+                    type: "TableConstructor",
+                    fields,
+                    loc: exp.loc,
+                };
+            });
+            const fragVar = `_f${Math.floor(rng() * 100000)}`;
+            const mergeCode = `local ${fragVar}={}\nfor _fi=1,#${fragTables.map((_, i) => `_f${i}`).join("+#")} do `;
+            const fragStmts = [];
+            fragTables.forEach((tbl, i) => {
+                const fn = `_f${i}`;
+                fragStmts.push({
+                    type: "LocalStatement",
+                    vars: [{ name: fn, type: undefined }],
+                    values: [tbl],
+                    loc: exp.loc,
+                });
+            });
+            const combinedExpr = fragTables.reduce((acc, tbl, i) => {
+                const merged = {
+                    type: "CallExpression",
+                    callee: { type: "Identifier", name: decoderName, loc: exp.loc },
+                    args: [
+                        { type: "Identifier", name: `_f${i}`, loc: exp.loc },
+                        { type: "NumberLiteral", value: String(key), loc: exp.loc },
+                        { type: "StringLiteral", value: strategy, loc: exp.loc },
+                    ],
+                    loc: exp.loc,
+                };
+                if (i === 0)
+                    return merged;
+                return {
+                    type: "BinaryExpression",
+                    operator: "..",
+                    left: acc,
+                    right: merged,
+                    loc: exp.loc,
+                };
+            });
+            return {
+                type: "ParenExpression",
+                expression: (() => {
+                    let result = combinedExpr;
+                    for (let i = fragTables.length - 1; i >= 0; i--) {
+                        result = combinedExpr;
+                    }
+                    return result;
+                })(),
+                loc: exp.loc,
+            };
+        }
+        let bytes;
+        if (strategy === "xor") {
+            bytes = encodeStringXor(exp.value, key);
+        }
+        else if (strategy === "add-rotate") {
+            bytes = encodeStringAddRotate(exp.value, key);
+        }
+        else if (strategy === "xor-chain") {
+            bytes = encodeStringXorChain(exp.value, keys);
+        }
+        else {
+            const sbox = generateSbox(rng);
+            bytes = encodeStringSbox(exp.value, sbox);
+        }
+        return makeDecodeCall(bytes, key, exp.loc, decoderName, strategy);
+    }
+    if (exp.type === "BinaryExpression") {
+        return {
+            ...exp,
+            left: transformExpression(exp.left, keys, strategies, decoderName, rng, useFragmentation),
+            right: transformExpression(exp.right, keys, strategies, decoderName, rng, useFragmentation),
+        };
+    }
+    if (exp.type === "UnaryExpression") {
+        return { ...exp, argument: transformExpression(exp.argument, keys, strategies, decoderName, rng, useFragmentation) };
+    }
+    if (exp.type === "CallExpression") {
+        return {
+            ...exp,
+            callee: transformExpression(exp.callee, keys, strategies, decoderName, rng, useFragmentation),
+            args: exp.args.map((a) => transformExpression(a, keys, strategies, decoderName, rng, useFragmentation)),
+        };
+    }
+    if (exp.type === "MethodCallExpression") {
+        return {
+            ...exp,
+            object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation),
+            args: exp.args.map((a) => transformExpression(a, keys, strategies, decoderName, rng, useFragmentation)),
+        };
+    }
+    if (exp.type === "IndexExpression") {
+        return {
+            ...exp,
+            object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation),
+            index: transformExpression(exp.index, keys, strategies, decoderName, rng, useFragmentation),
+        };
+    }
+    if (exp.type === "MemberExpression") {
+        return { ...exp, object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation) };
+    }
+    if (exp.type === "TableConstructor") {
+        return {
+            ...exp,
+            fields: exp.fields.map((f) => {
+                if (f.kind === "index")
+                    return { ...f, index: transformExpression(f.index, keys, strategies, decoderName, rng, useFragmentation), value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation) };
+                if (f.kind === "named")
+                    return { ...f, value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation) };
+                return { ...f, value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation) };
+            }),
+        };
+    }
+    if (exp.type === "FunctionExpression") {
+        return {
+            ...exp,
+            body: exp.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+        };
+    }
+    if (exp.type === "ParenExpression") {
+        return { ...exp, expression: transformExpression(exp.expression, keys, strategies, decoderName, rng, useFragmentation) };
+    }
+    if (exp.type === "TypeAssertion") {
+        return { ...exp, expression: transformExpression(exp.expression, keys, strategies, decoderName, rng, useFragmentation) };
+    }
+    if (exp.type === "IfElseExpression") {
+        return {
+            ...exp,
+            condition: transformExpression(exp.condition, keys, strategies, decoderName, rng, useFragmentation),
+            thenExp: transformExpression(exp.thenExp, keys, strategies, decoderName, rng, useFragmentation),
+            elseifClauses: exp.elseifClauses?.map((c) => ({
+                ...c,
+                condition: transformExpression(c.condition, keys, strategies, decoderName, rng, useFragmentation),
+                value: transformExpression(c.value, keys, strategies, decoderName, rng, useFragmentation),
+            })),
+            elseExp: transformExpression(exp.elseExp, keys, strategies, decoderName, rng, useFragmentation),
+        };
+    }
+    if (exp.type === "StringInterpolation") {
+        return {
+            ...exp,
+            parts: exp.parts.map((p) => typeof p === "string" ? p : transformExpression(p, keys, strategies, decoderName, rng, useFragmentation)),
+        };
+    }
+    return exp;
+}
+function transformStatement(stmt, keys, strategies, decoderName, rng, useFragmentation) {
+    switch (stmt.type) {
+        case "LocalStatement":
+            return {
+                ...stmt,
+                values: stmt.values?.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        case "AssignmentStatement":
+            return {
+                ...stmt,
+                vars: stmt.vars.map((v) => {
+                    if (v.type === "Identifier")
+                        return v;
+                    if (v.type === "IndexExpression")
+                        return { ...v, object: transformExpression(v.object, keys, strategies, decoderName, rng, useFragmentation), index: transformExpression(v.index, keys, strategies, decoderName, rng, useFragmentation) };
+                    return { ...v, object: transformExpression(v.object, keys, strategies, decoderName, rng, useFragmentation) };
+                }),
+                values: stmt.values.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        case "CompoundAssignmentStatement":
+            return {
+                ...stmt,
+                var: stmt.var.type === "Identifier" ? stmt.var : {
+                    ...stmt.var,
+                    object: transformExpression(stmt.var.object, keys, strategies, decoderName, rng, useFragmentation),
+                    ...(stmt.var.type === "IndexExpression" && { index: transformExpression(stmt.var.index, keys, strategies, decoderName, rng, useFragmentation) }),
+                },
+                value: transformExpression(stmt.value, keys, strategies, decoderName, rng, useFragmentation),
+            };
+        case "FunctionCallStatement":
+            return { ...stmt, call: transformExpression(stmt.call, keys, strategies, decoderName, rng, useFragmentation) };
+        case "ReturnStatement":
+            return { ...stmt, values: stmt.values?.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)) };
+        case "IfStatement":
+            return {
+                ...stmt,
+                condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation),
+                thenBody: stmt.thenBody.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                elseifClauses: stmt.elseifClauses?.map((c) => ({
+                    ...c,
+                    condition: transformExpression(c.condition, keys, strategies, decoderName, rng, useFragmentation),
+                    body: c.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                })),
+                elseBody: stmt.elseBody?.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        case "ForNumericStatement":
+            return {
+                ...stmt,
+                start: transformExpression(stmt.start, keys, strategies, decoderName, rng, useFragmentation),
+                end: transformExpression(stmt.end, keys, strategies, decoderName, rng, useFragmentation),
+                step: stmt.step ? transformExpression(stmt.step, keys, strategies, decoderName, rng, useFragmentation) : undefined,
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        case "ForInStatement":
+            return {
+                ...stmt,
+                iter: stmt.iter.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)),
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        case "LocalFunctionStatement":
+        case "FunctionStatement":
+            return {
+                ...stmt,
+                params: stmt.params,
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        case "DoStatement":
+        case "WhileStatement":
+        case "RepeatStatement":
+            return {
+                ...stmt,
+                ...(stmt.type === "WhileStatement" && { condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation) }),
+                ...(stmt.type === "RepeatStatement" && { condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation) }),
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+            };
+        default:
+            return stmt;
+    }
+}
+export function encodeStrings(ast, options = {}) {
+    const enabled = options.enabled !== false;
+    if (!enabled)
+        return ast;
+    const seed = options.key ?? 0x5A;
+    const rng = createRng(seed);
+    const strategies = options.strategies ?? ["xor", "add-rotate", "sbox"];
+    const keys = [seed & 0xff, (seed + 0x1A) & 0xff, (seed + 0x3B) & 0xff, (seed + 0x5C) & 0xff];
+    const useFragmentation = options.useFragmentation ?? true;
+    const decoderName = `_clydeDec_${Math.random().toString(36).substring(2, 8)}`;
+    const loc = ast.body[0]?.loc ?? { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };
+    const sboxTables = [];
+    for (let i = 0; i < 2; i++) {
+        sboxTables.push(generateSbox(rng));
+    }
+    const decoders = makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName);
+    const transformedBody = ast.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation));
+    return {
+        ...ast,
+        body: [...decoders, ...transformedBody],
+    };
+}
+//# sourceMappingURL=StringEncoder.js.map
