@@ -39,7 +39,6 @@ export async function isAdminUser(): Promise<boolean> {
   const supabase = createClient();
   if (!supabase) return false;
   const { data } = await supabase.auth.getUser();
-  if (!data.user?.email) return false;
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-  return adminEmail ? data.user.email === adminEmail : false;
+  const { isAdminEmail } = await import("@/lib/admin-check");
+  return isAdminEmail(data.user?.email);
 }

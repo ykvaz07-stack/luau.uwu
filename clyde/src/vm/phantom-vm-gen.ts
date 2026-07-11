@@ -98,10 +98,14 @@ export function generatePhantomVM(
   const nPc = rname();
   const nEr = rname();
   const nS = rname();
+  const nVg = rname();
+  const nVn = rname();
   const nH: string[] = Array.from({ length: PHANTOM_OP_COUNT }, () => rname());
   const nD = rname();
 
   const out: string[] = [];
+
+  out.push(`local ${nVg}={} local ${nVn}=0`);
 
   if (adbg) {
     const ndc = rname();
@@ -132,7 +136,7 @@ export function generatePhantomVM(
   const encCode: number[] = [];
   for (let i = 0; i < code.length; i += 4) {
     const origOp = code[i];
-    const shuffledOp = opShuf[origOp];
+    const shuffledOp = opInv[origOp];
     const affineOp = affEnc(shuffledOp);
     encCode.push(affineOp, code[i+1], code[i+2], code[i+3]);
   }
@@ -141,7 +145,7 @@ export function generatePhantomVM(
 
   out.push(`local ${nBC}=${ntab(finalCode)}`);
   out.push(`local ${nX}=${ntab(key)}`);
-  out.push(`local ${nBx}=bit32 and bit32.bxor or function(a,b)return a~b end`);
+  out.push(`local ${nBx}=bit32 and bit32.bxor or function(a,b)local r=0;local p=1;for _i=1,32 do if(a%2)~=(b%2)then r=r+p end;a=math.floor(a/2);b=math.floor(b/2);p=p*2 end;return r end`);
 
   const nFrags = 2 + Math.floor(rn() * 3);
   const fNames: string[] = [];
@@ -150,10 +154,7 @@ export function generatePhantomVM(
     const start = Math.floor(f * finalCode.length / nFrags);
     const end = Math.floor((f + 1) * finalCode.length / nFrags);
     const frag = finalCode.slice(start, end);
-    const fk = encKey(4);
-    const ef = xorEnc(frag, fk);
-    out.push(`local ${rname(true)}=${ntab(fk)}`);
-    out.push(`local ${fn}=${ntab(ef)}`);
+    out.push(`local ${fn}=${ntab(frag)}`);
     fNames.push(fn);
   }
 
@@ -163,39 +164,42 @@ export function generatePhantomVM(
     out.push(`for _j=1,#${fNames[f]} do _oi=_oi+1;${nBC}[_oi]=${nBx}(${fNames[f]}[_j],${nX}[(_oi-1)%#${nX}+1]) end`);
   }
 
+  out.push(`local ${nRegs}={}`);
+  out.push(`for _i=1,${maxRegs} do ${nRegs}[_i]=nil end`);
+
   out.push(`local ${nI}=1`);
 
   for (let h = 0; h < PHANTOM_OP_COUNT; h++) {
     const oi = opShuf[h];
     const body: string[] = [];
-    const ra = (r: string) => `${nRegs}[${r}+1]`;
+    const ra = (param: string) => `${nRegs}[${param}+1]`;
     for (let j = 0; j < Math.floor(rn() * 4); j++) body.push(`local ${rname(true)}=${Math.floor(rn() * 255)}`);
     switch (oi) {
       case 0: body.push(`--`); break;
-      case 1: body.push(`${ra("A")}=${nRegs}[1]`); break;
-      case 2: body.push(`${ra("A")}=${nL}[${nB}+1]`); break;
-      case 3: body.push(`${ra("A")}=nil`); break;
-      case 4: body.push(`${ra("A")}=${nB}~=0`); break;
-      case 5: body.push(`${ra("A")}=rawget(_G,${nL}[${nB}+1])`); break;
-      case 6: body.push(`_G[${nL}[${nB}+1]]=${nRegs}[${nA}+1]`); break;
-      case 7: body.push(`${ra("A")}=${nRegs}[${nB}+1][${nC}+1]`); break;
-      case 8: body.push(`${nRegs}[${nB}+1][${nC}+1]=${nRegs}[${nA}+1]`); break;
-      case 9: body.push(`${ra("A")}={}`); break;
-      case 10: body.push(`${ra("A")}=${nRegs}[${nB}+1]+${nRegs}[${nC}+1]`); break;
-      case 11: body.push(`${ra("A")}=${nRegs}[${nB}+1]-${nRegs}[${nC}+1]`); break;
-      case 12: body.push(`${ra("A")}=${nRegs}[${nB}+1]*${nRegs}[${nC}+1]`); break;
-      case 13: body.push(`${ra("A")}=${nRegs}[${nB}+1]/${nRegs}[${nC}+1]`); break;
-      case 14: body.push(`${ra("A")}=${nRegs}[${nB}+1]%${nRegs}[${nC}+1]`); break;
-      case 15: body.push(`${ra("A")}=${nRegs}[${nB}+1]^${nRegs}[${nC}+1]`); break;
-      case 16: body.push(`${ra("A")}=-${nRegs}[${nB}+1]`); break;
-      case 17: body.push(`${ra("A")}=not ${nRegs}[${nB}+1]`); break;
-      case 18: body.push(`${ra("A")}=#${nRegs}[${nB}+1]`); break;
-      case 19: body.push(`local _s=""..${nRegs}[${nB}+1];for _i=2,${nC} do _s=_s..${nRegs}[${nB}+_i] end;${nRegs}[${nA}+1]=_s`); break;
-      case 20: body.push(`--`); break;
-      case 21: body.push(`${ra("A")}=${nRegs}[${nB}+1]==${nRegs}[${nC}+1]`); break;
-      case 22: body.push(`${ra("A")}=${nRegs}[${nB}+1]<${nRegs}[${nC}+1]`); break;
-      case 23: body.push(`${ra("A")}=${nRegs}[${nB}+1]<=${nRegs}[${nC}+1]`); break;
-      case 24: body.push(`${ra("A")}=${nRegs}[${nB}+1]`); break;
+      case 1: body.push(`${ra(nA)}=${nRegs}[${nB}+1]`); break;
+      case 2: body.push(`${ra(nA)}=${nL}[${nB}+1]`); break;
+      case 3: body.push(`${ra(nA)}=nil`); break;
+      case 4: body.push(`${ra(nA)}=${nB}~=0`); break;
+      case 5: body.push(`${ra(nA)}=rawget(_G,${nL}[${nB}+1])`); break;
+      case 6: body.push(`_G[${nL}[${nA}+1]]=${ra(nB)}`); break;
+      case 7: body.push(`${ra(nA)}=${nRegs}[${nB}+1][${nRegs}[${nC}+1]]`); break;
+      case 8: body.push(`${nRegs}[${nA}+1][${nRegs}[${nB}+1]]=${ra(nC)}`); break;
+      case 9: body.push(`${ra(nA)}={}`); break;
+      case 10: body.push(`${ra(nA)}=${nRegs}[${nB}+1]+${nRegs}[${nC}+1]`); break;
+      case 11: body.push(`${ra(nA)}=${nRegs}[${nB}+1]-${nRegs}[${nC}+1]`); break;
+      case 12: body.push(`${ra(nA)}=${nRegs}[${nB}+1]*${nRegs}[${nC}+1]`); break;
+      case 13: body.push(`${ra(nA)}=${nRegs}[${nB}+1]/${nRegs}[${nC}+1]`); break;
+      case 14: body.push(`${ra(nA)}=${nRegs}[${nB}+1]%${nRegs}[${nC}+1]`); break;
+      case 15: body.push(`${ra(nA)}=${nRegs}[${nB}+1]^${nRegs}[${nC}+1]`); break;
+      case 16: body.push(`${ra(nA)}=-${nRegs}[${nB}+1]`); break;
+      case 17: body.push(`${ra(nA)}=not ${nRegs}[${nB}+1]`); break;
+      case 18: body.push(`${ra(nA)}=#${nRegs}[${nB}+1]`); break;
+      case 19: body.push(`local _s=tostring(${nRegs}[${nB}+1]);for _i=${nB}+2,${nC}+1 do _s=_s..tostring(${nRegs}[_i]) end;${nRegs}[${nA}+1]=_s`); break;
+      case 20: body.push(`if ${nB}==0 or (${nC}~=0)==not not ${nRegs}[${nB}+1] then return ${nI}+${nA}*4-4 end`); break;
+      case 21: body.push(`${ra(nA)}=${nRegs}[${nB}+1]==${nRegs}[${nC}+1]`); break;
+      case 22: body.push(`${ra(nA)}=${nRegs}[${nB}+1]<${nRegs}[${nC}+1]`); break;
+      case 23: body.push(`${ra(nA)}=${nRegs}[${nB}+1]<=${nRegs}[${nC}+1]`); break;
+      case 24: body.push(`${ra(nA)}=${nRegs}[${nB}+1]`); break;
       case 25: body.push(`if ${nRegs}[${nB}+1] then ${nRegs}[${nA}+1]=${nRegs}[${nB}+1] else ${nRegs}[${nA}+1]=${nRegs}[${nC}+1] end`); break;
       case 26: {
         const nf = rname(true), na = rname(true), nt = rname(true), nr = rname(true);
@@ -205,34 +209,57 @@ export function generatePhantomVM(
         body.push(`for _i=1,${na} do ${nt}[_i]=${nRegs}[${nA}+_i+1] end`);
         body.push(`local ${nr}={pcall(${nf},table.unpack(${nt},1,${na}))}`);
         body.push(`${nRegs}[${nA}+1]=${nr}[1]`);
+        body.push(`if ${nC}>1 then for _j=2,${nC} do ${nRegs}[${nA}+_j]=${nr}[_j] end end`);
         break;
       }
-      case 27: body.push(`return ${nRegs}[${nA}+1](table.unpack({${nRegs}[${nA}+2]},1,${nB}))`); break;
-      case 28: body.push(`return ${nRegs}[${nA}+1],${nRegs}[${nA}+2],${nRegs}[${nA}+3]`); break;
-      case 29: body.push(`if ${nRegs}[${nA}+1]>${nRegs}[${nA}+2] then ${nI}=${nI}+${nC} end`); break;
-      case 30: body.push(`${nRegs}[${nA}+1]=${nRegs}[${nA}+1]+${nRegs}[${nA}+3];if ${nRegs}[${nA}+1]<=${nRegs}[${nA}+2] then ${nI}=${nI}+${nC} end`); break;
-      case 31: body.push(`--`); break;
+      case 27: {
+        const tt = rname();
+        body.push(`local ${tt}={};for _i=1,${nB} do ${tt}[_i]=${nRegs}[${nA}+_i+1] end;return ${nRegs}[${nA}+1](table.unpack(${tt},1,${nB}))`);
+        break;
+      }
+      case 28: {
+        const tr = rname();
+        body.push(`local ${tr}={};for _i=1,${nB} do ${tr}[_i]=${nRegs}[${nA}+_i] end;return table.unpack(${tr},1,${nB})`);
+        break;
+      }
+      case 29: body.push(`${nRegs}[${nA}+1]=${nRegs}[${nA}+1]-${nRegs}[${nA}+3];if ${nRegs}[${nA}+1]>${nRegs}[${nA}+2] then return ${nI}+${nC}*4-4 end`); break;
+      case 30: body.push(`${nRegs}[${nA}+1]=${nRegs}[${nA}+1]+${nRegs}[${nA}+3];if ${nRegs}[${nA}+1]<=${nRegs}[${nA}+2] then return ${nI}-${nB}*4 end`); break;
+      case 31: {
+        const tg = rname(), ts = rname(), tc = rname(), tr = rname();
+        body.push(`local ${tg}=${nRegs}[${nA}+1]`);
+        body.push(`local ${ts}=${nRegs}[${nA}+2]`);
+        body.push(`local ${tc}=${nRegs}[${nA}+3]`);
+        body.push(`local ${tr}={pcall(${tg},${ts},${tc})}`);
+        body.push(`${nRegs}[${nA}+4]=${tr}[1]`);
+        body.push(`if ${nB}>=2 then ${nRegs}[${nA}+5]=${tr}[2] end`);
+        body.push(`if ${nB}>=3 then ${nRegs}[${nA}+6]=${tr}[3] end`);
+        body.push(`${nRegs}[${nA}+3]=${tr}[1]`);
+        body.push(`if ${nRegs}[${nA}+4]~=nil then return ${nI}+${nC}*4-4 end`);
+        break;
+      }
       case 32: body.push(`--`); break;
-      case 33: body.push(`${ra("A")}=${nFt}[${nB}+1]and function(...)end`); break;
-      case 34: body.push(`local _n=select("#",...);for _i=1,_n do ${nRegs}[${nA}+_i]=select(_i,...)end`); break;
-      case 35: body.push(`${ra("A")}=${nRegs}[${nB}+1]`); break;
+      case 33: body.push(`${ra(nA)}=${nFt}[${nB}+1]`); break;
+      case 34: body.push(`for _i=1,${nVn} do ${nRegs}[${nA}+_i]=${nVg}[_i] end`); break;
+      case 35: body.push(`${ra(nA)}=${nRegs}[${nB}+1]`); break;
       case 36: body.push(`${nRegs}[${nB}+1]=${nRegs}[${nA}+1]`); break;
       case 37: body.push(`--`); break;
     }
-    out.push(`local function ${nH[h]}(${nA}=0,${nB}=0,${nC}=0,${nI}=0)`);
+    out.push(`local function ${nH[h]}(${nA},${nB},${nC},${nI})`);
     out.push(...body);
     out.push(`end`);
   }
 
   out.push(`local ${nD}={${nH.join(",")}}`);
 
-  out.push(`local ${nRegs}={}`);
-  out.push(`for _i=1,${maxRegs} do ${nRegs}[_i]=nil end`);
-
   out.push(`local ${nF}=function(...)`);
   out.push(`  local ${nS}=select`);
+  out.push(`  ${nVn}=${nS}("#",...)`);
+  out.push(`  ${nVg}={}`);
   if (nParams > 0) {
     out.push(`  for _i=1,${nParams} do ${nRegs}[_i]=${nS}(_i,...) end`);
+    out.push(`  if ${nVn}>${nParams} then for _i=${nParams}+1,${nVn} do ${nVg}[_i-${nParams}]=${nS}(_i,...) end;${nVn}=${nVn}-${nParams} else ${nVn}=0 end`);
+  } else {
+    out.push(`  for _i=1,${nVn} do ${nVg}[_i]=${nS}(_i,...) end`);
   }
   out.push(`  while ${nI}<=#${nBC} do`);
   out.push(`    local _o=${nBC}[${nI}]`);
@@ -241,8 +268,8 @@ export function generatePhantomVM(
   out.push(`    local _c=${nBC}[${nI}+3]`);
   const affDecExpr = `(((_o-${affineB})*${affineAInv})%256+256)%256`;
   out.push(`    local _h=(${affDecExpr})%#${nD}`);
-  out.push(`    ${nD}[_h+1](_a,_b,_c,${nI})`);
-  out.push(`    ${nI}=${nI}+4`);
+    out.push(`    local _r=${nD}[_h+1](_a,_b,_c,${nI})`);
+    out.push(`    ${nI}=(_r or ${nI})+4`);
   out.push(`  end`);
   out.push(`end`);
 

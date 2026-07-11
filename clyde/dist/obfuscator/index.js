@@ -11,6 +11,8 @@ export { protectWithMetatables } from "./MetatableProtector.js";
 export { injectAntiDebug } from "./AntiDebugInjector.js";
 export { embedWatermark } from "./WatermarkEngine.js";
 export { MBAEngine } from "./MBAExpressionEngine.js";
+export { applyControlFlowDoubling } from "./ControlFlowDoubling.js";
+export { scrambleArrays } from "./ArrayScrambler.js";
 export { runPipeline, runPipelineWithPhantomVM } from "./Pipeline.js";
 export { compilePhantom } from "../vm/phantom-compiler.js";
 export { generatePhantomVM } from "../vm/phantom-vm-gen.js";

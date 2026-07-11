@@ -9,9 +9,9 @@ export function phantomEmit(chunk, op, A = 0, B = 0, C = 0) {
         chunk.maxRegs = Math.max(chunk.maxRegs, C + 1);
     return pos;
 }
-export function phantomPatch(chunk, pos, field, value) {
+export function phantomPatch(chunk, pc, field, value) {
     const offset = field === 'A' ? 1 : field === 'B' ? 2 : 3;
-    chunk.code[pos + offset] = value;
+    chunk.code[pc * 4 + offset] = value;
 }
 export function phantomPC(chunk) {
     return Math.floor(chunk.code.length / 4);

@@ -53,6 +53,162 @@ function generateSbox(rng) {
     }
     return sbox;
 }
+function crc8(s, polynomial) {
+    let crc = 0;
+    for (let i = 0; i < s.length; i++) {
+        crc ^= s.charCodeAt(i);
+        for (let j = 0; j < 8; j++) {
+            if (crc & 0x80) {
+                crc = ((crc << 1) ^ polynomial) & 0xff;
+            }
+            else {
+                crc = (crc << 1) & 0xff;
+            }
+        }
+    }
+    return crc;
+}
+function createCrc8FunctionAst(crcPoly, loc) {
+    const name = `_crc8_${Math.random().toString(36).substring(2, 6)}`;
+    const statement = {
+        type: "LocalStatement",
+        vars: [{ name, type: undefined }],
+        values: [{
+                type: "FunctionExpression",
+                params: [{ type: "Param", name: "s", variadic: false, loc }],
+                body: [
+                    {
+                        type: "LocalStatement",
+                        vars: [{ name: "crc", type: undefined }],
+                        values: [{ type: "NumberLiteral", value: "0", loc }],
+                        loc,
+                    },
+                    {
+                        type: "ForNumericStatement",
+                        var: { type: "Identifier", name: "i", loc },
+                        start: { type: "NumberLiteral", value: "1", loc },
+                        end: { type: "UnaryExpression", operator: "#", argument: { type: "Identifier", name: "s", loc }, loc },
+                        body: [
+                            {
+                                type: "AssignmentStatement",
+                                vars: [{ type: "Identifier", name: "crc", loc }],
+                                values: [{
+                                        type: "CallExpression",
+                                        callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "bxor", loc },
+                                        args: [
+                                            { type: "Identifier", name: "crc", loc },
+                                            {
+                                                type: "CallExpression",
+                                                callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "byte", loc },
+                                                args: [
+                                                    { type: "Identifier", name: "s", loc },
+                                                    { type: "Identifier", name: "i", loc },
+                                                ],
+                                                loc,
+                                            },
+                                        ],
+                                        loc,
+                                    }],
+                                loc,
+                            },
+                            {
+                                type: "ForNumericStatement",
+                                var: { type: "Identifier", name: "_", loc },
+                                start: { type: "NumberLiteral", value: "1", loc },
+                                end: { type: "NumberLiteral", value: "8", loc },
+                                body: [
+                                    {
+                                        type: "IfStatement",
+                                        condition: {
+                                            type: "BinaryExpression",
+                                            operator: "~=",
+                                            left: {
+                                                type: "CallExpression",
+                                                callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "band", loc },
+                                                args: [
+                                                    { type: "Identifier", name: "crc", loc },
+                                                    { type: "NumberLiteral", value: "0x80", loc },
+                                                ],
+                                                loc,
+                                            },
+                                            right: { type: "NumberLiteral", value: "0", loc },
+                                            loc,
+                                        },
+                                        thenBody: [
+                                            {
+                                                type: "AssignmentStatement",
+                                                vars: [{ type: "Identifier", name: "crc", loc }],
+                                                values: [{
+                                                        type: "CallExpression",
+                                                        callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "bxor", loc },
+                                                        args: [
+                                                            {
+                                                                type: "CallExpression",
+                                                                callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "lshift", loc },
+                                                                args: [
+                                                                    { type: "Identifier", name: "crc", loc },
+                                                                    { type: "NumberLiteral", value: "1", loc },
+                                                                ],
+                                                                loc,
+                                                            },
+                                                            { type: "NumberLiteral", value: String(crcPoly), loc },
+                                                        ],
+                                                        loc,
+                                                    }],
+                                                loc,
+                                            },
+                                        ],
+                                        elseifClauses: [],
+                                        elseBody: [
+                                            {
+                                                type: "AssignmentStatement",
+                                                vars: [{ type: "Identifier", name: "crc", loc }],
+                                                values: [{
+                                                        type: "CallExpression",
+                                                        callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "lshift", loc },
+                                                        args: [
+                                                            { type: "Identifier", name: "crc", loc },
+                                                            { type: "NumberLiteral", value: "1", loc },
+                                                        ],
+                                                        loc,
+                                                    }],
+                                                loc,
+                                            },
+                                        ],
+                                        loc,
+                                    },
+                                    {
+                                        type: "AssignmentStatement",
+                                        vars: [{ type: "Identifier", name: "crc", loc }],
+                                        values: [{
+                                                type: "CallExpression",
+                                                callee: { type: "MemberExpression", object: { type: "Identifier", name: "bit32", loc }, property: "band", loc },
+                                                args: [
+                                                    { type: "Identifier", name: "crc", loc },
+                                                    { type: "NumberLiteral", value: "0xFF", loc },
+                                                ],
+                                                loc,
+                                            }],
+                                        loc,
+                                    },
+                                ],
+                                loc,
+                            },
+                        ],
+                        loc,
+                    },
+                    {
+                        type: "ReturnStatement",
+                        values: [{ type: "Identifier", name: "crc", loc }],
+                        loc,
+                    },
+                ],
+                loc,
+            }],
+        loc,
+    };
+    return { statement, name };
+}
 function fragmentString(str, rng) {
     if (str.length <= 2)
         return { fragments: [encodeStringXor(str, 0x5A)], order: [0] };
@@ -114,7 +270,7 @@ function makeDecodeCall(bytes, key, loc, decoderName, strategy = "xor") {
         loc,
     };
 }
-function makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName) {
+function makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName, useCrc8, crcPoly) {
     const cacheName = `_c_${Math.random().toString(36).substring(2, 6)}`;
     const cacheStmt = {
         type: "LocalStatement",
@@ -304,6 +460,129 @@ function makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName) {
             }],
         loc,
     });
+    if (useCrc8 && crcPoly !== undefined) {
+        const crc8Result = createCrc8FunctionAst(crcPoly, loc);
+        const crc8FuncName = crc8Result.name;
+        const crc8FuncStmt = crc8Result.statement;
+        decoderFuncBody.push({
+            type: "LocalStatement",
+            vars: [{ name: "crc_e", type: undefined }],
+            values: [{
+                    type: "CallExpression",
+                    callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "byte", loc },
+                    args: [
+                        { type: "Identifier", name: "res", loc },
+                        { type: "UnaryExpression", operator: "#", argument: { type: "Identifier", name: "res", loc }, loc },
+                    ],
+                    loc,
+                }],
+            loc,
+        });
+        decoderFuncBody.push({
+            type: "LocalStatement",
+            vars: [{ name: "a", type: undefined }],
+            values: [{
+                    type: "CallExpression",
+                    callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "sub", loc },
+                    args: [
+                        { type: "Identifier", name: "res", loc },
+                        { type: "NumberLiteral", value: "1", loc },
+                        {
+                            type: "BinaryExpression",
+                            operator: "-",
+                            left: { type: "UnaryExpression", operator: "#", argument: { type: "Identifier", name: "res", loc }, loc },
+                            right: { type: "NumberLiteral", value: "1", loc },
+                            loc,
+                        },
+                    ],
+                    loc,
+                }],
+            loc,
+        });
+        decoderFuncBody.push({
+            type: "IfStatement",
+            condition: {
+                type: "BinaryExpression",
+                operator: "~=",
+                left: { type: "Identifier", name: "crc_e", loc },
+                right: {
+                    type: "CallExpression",
+                    callee: { type: "Identifier", name: crc8FuncName, loc },
+                    args: [{ type: "Identifier", name: "a", loc }],
+                    loc,
+                },
+                loc,
+            },
+            thenBody: [
+                {
+                    type: "ReturnStatement",
+                    values: [{
+                            type: "CallExpression",
+                            callee: {
+                                type: "MemberExpression",
+                                object: {
+                                    type: "CallExpression",
+                                    callee: { type: "MemberExpression", object: { type: "Identifier", name: "string", loc }, property: "char", loc },
+                                    args: [{
+                                            type: "CallExpression",
+                                            callee: { type: "MemberExpression", object: { type: "Identifier", name: "math", loc }, property: "random", loc },
+                                            args: [
+                                                { type: "NumberLiteral", value: "0", loc },
+                                                { type: "NumberLiteral", value: "255", loc },
+                                            ],
+                                            loc,
+                                        }],
+                                    loc,
+                                },
+                                property: "rep",
+                                loc,
+                            },
+                            args: [{
+                                    type: "CallExpression",
+                                    callee: { type: "MemberExpression", object: { type: "Identifier", name: "math", loc }, property: "random", loc },
+                                    args: [
+                                        { type: "NumberLiteral", value: "1", loc },
+                                        { type: "UnaryExpression", operator: "#", argument: { type: "Identifier", name: "a", loc }, loc },
+                                    ],
+                                    loc,
+                                }],
+                            loc,
+                        }],
+                    loc,
+                },
+            ],
+            elseifClauses: [],
+            elseBody: [],
+            loc,
+        });
+        decoderFuncBody.push({
+            type: "AssignmentStatement",
+            vars: [{ type: "IndexExpression", object: { type: "Identifier", name: cacheName, loc }, index: { type: "Identifier", name: "t", loc }, loc }],
+            values: [{ type: "Identifier", name: "a", loc }],
+            loc,
+        });
+        decoderFuncBody.push({
+            type: "ReturnStatement",
+            values: [{ type: "Identifier", name: "a", loc }],
+            loc,
+        });
+        const decoderFunc = {
+            type: "LocalStatement",
+            vars: [{ name: decoderName, type: undefined }],
+            values: [{
+                    type: "FunctionExpression",
+                    params: [
+                        { type: "Param", name: "t", variadic: false, loc },
+                        { type: "Param", name: "k", variadic: false, loc },
+                        { type: "Param", name: "mode", variadic: false, loc },
+                    ],
+                    body: decoderFuncBody,
+                    loc,
+                }],
+            loc,
+        };
+        return [...sboxTableStmts, cacheStmt, crc8FuncStmt, decoderFunc];
+    }
     decoderFuncBody.push({
         type: "AssignmentStatement",
         vars: [{ type: "IndexExpression", object: { type: "Identifier", name: cacheName, loc }, index: { type: "Identifier", name: "t", loc }, loc }],
@@ -332,7 +611,7 @@ function makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName) {
     };
     return [...sboxTableStmts, cacheStmt, decoderFunc];
 }
-function transformExpression(exp, keys, strategies, decoderName, rng, useFragmentation) {
+function transformExpression(exp, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) {
     if (exp.type === "StringLiteral") {
         if (exp.value === "")
             return exp;
@@ -410,93 +689,96 @@ function transformExpression(exp, keys, strategies, decoderName, rng, useFragmen
             const sbox = generateSbox(rng);
             bytes = encodeStringSbox(exp.value, sbox);
         }
+        if (useCrc8 && crcPoly !== undefined) {
+            bytes.push(crc8(exp.value, crcPoly));
+        }
         return makeDecodeCall(bytes, key, exp.loc, decoderName, strategy);
     }
     if (exp.type === "BinaryExpression") {
         return {
             ...exp,
-            left: transformExpression(exp.left, keys, strategies, decoderName, rng, useFragmentation),
-            right: transformExpression(exp.right, keys, strategies, decoderName, rng, useFragmentation),
+            left: transformExpression(exp.left, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+            right: transformExpression(exp.right, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
         };
     }
     if (exp.type === "UnaryExpression") {
-        return { ...exp, argument: transformExpression(exp.argument, keys, strategies, decoderName, rng, useFragmentation) };
+        return { ...exp, argument: transformExpression(exp.argument, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
     }
     if (exp.type === "CallExpression") {
         return {
             ...exp,
-            callee: transformExpression(exp.callee, keys, strategies, decoderName, rng, useFragmentation),
-            args: exp.args.map((a) => transformExpression(a, keys, strategies, decoderName, rng, useFragmentation)),
+            callee: transformExpression(exp.callee, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+            args: exp.args.map((a) => transformExpression(a, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
         };
     }
     if (exp.type === "MethodCallExpression") {
         return {
             ...exp,
-            object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation),
-            args: exp.args.map((a) => transformExpression(a, keys, strategies, decoderName, rng, useFragmentation)),
+            object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+            args: exp.args.map((a) => transformExpression(a, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
         };
     }
     if (exp.type === "IndexExpression") {
         return {
             ...exp,
-            object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation),
-            index: transformExpression(exp.index, keys, strategies, decoderName, rng, useFragmentation),
+            object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+            index: transformExpression(exp.index, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
         };
     }
     if (exp.type === "MemberExpression") {
-        return { ...exp, object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation) };
+        return { ...exp, object: transformExpression(exp.object, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
     }
     if (exp.type === "TableConstructor") {
         return {
             ...exp,
             fields: exp.fields.map((f) => {
                 if (f.kind === "index")
-                    return { ...f, index: transformExpression(f.index, keys, strategies, decoderName, rng, useFragmentation), value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation) };
+                    return { ...f, index: transformExpression(f.index, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly), value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
                 if (f.kind === "named")
-                    return { ...f, value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation) };
-                return { ...f, value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation) };
+                    return { ...f, value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
+                return { ...f, value: transformExpression(f.value, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
             }),
         };
     }
     if (exp.type === "FunctionExpression") {
         return {
             ...exp,
-            body: exp.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+            body: exp.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
         };
     }
     if (exp.type === "ParenExpression") {
-        return { ...exp, expression: transformExpression(exp.expression, keys, strategies, decoderName, rng, useFragmentation) };
+        return { ...exp, expression: transformExpression(exp.expression, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
     }
     if (exp.type === "TypeAssertion") {
-        return { ...exp, expression: transformExpression(exp.expression, keys, strategies, decoderName, rng, useFragmentation) };
+        return { ...exp, expression: transformExpression(exp.expression, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
     }
     if (exp.type === "IfElseExpression") {
         return {
             ...exp,
-            condition: transformExpression(exp.condition, keys, strategies, decoderName, rng, useFragmentation),
-            thenExp: transformExpression(exp.thenExp, keys, strategies, decoderName, rng, useFragmentation),
+            condition: transformExpression(exp.condition, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+            thenExp: transformExpression(exp.thenExp, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
             elseifClauses: exp.elseifClauses?.map((c) => ({
                 ...c,
-                condition: transformExpression(c.condition, keys, strategies, decoderName, rng, useFragmentation),
-                value: transformExpression(c.value, keys, strategies, decoderName, rng, useFragmentation),
+                condition: transformExpression(c.condition, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+                value: transformExpression(c.value, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
             })),
-            elseExp: transformExpression(exp.elseExp, keys, strategies, decoderName, rng, useFragmentation),
+            elseExp: transformExpression(exp.elseExp, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
         };
     }
     if (exp.type === "StringInterpolation") {
         return {
             ...exp,
-            parts: exp.parts.map((p) => typeof p === "string" ? p : transformExpression(p, keys, strategies, decoderName, rng, useFragmentation)),
+            parts: exp.parts.map((p) => typeof p === "string" ? p : transformExpression(p, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
         };
     }
     return exp;
 }
-function transformStatement(stmt, keys, strategies, decoderName, rng, useFragmentation) {
+function transformStatement(stmt, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) {
     switch (stmt.type) {
         case "LocalStatement":
             return {
                 ...stmt,
-                values: stmt.values?.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)),
+                values: stmt.values?.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         case "AssignmentStatement":
             return {
@@ -505,66 +787,66 @@ function transformStatement(stmt, keys, strategies, decoderName, rng, useFragmen
                     if (v.type === "Identifier")
                         return v;
                     if (v.type === "IndexExpression")
-                        return { ...v, object: transformExpression(v.object, keys, strategies, decoderName, rng, useFragmentation), index: transformExpression(v.index, keys, strategies, decoderName, rng, useFragmentation) };
-                    return { ...v, object: transformExpression(v.object, keys, strategies, decoderName, rng, useFragmentation) };
+                        return { ...v, object: transformExpression(v.object, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly), index: transformExpression(v.index, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
+                    return { ...v, object: transformExpression(v.object, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
                 }),
-                values: stmt.values.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)),
+                values: stmt.values.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         case "CompoundAssignmentStatement":
             return {
                 ...stmt,
                 var: stmt.var.type === "Identifier" ? stmt.var : {
                     ...stmt.var,
-                    object: transformExpression(stmt.var.object, keys, strategies, decoderName, rng, useFragmentation),
-                    ...(stmt.var.type === "IndexExpression" && { index: transformExpression(stmt.var.index, keys, strategies, decoderName, rng, useFragmentation) }),
+                    object: transformExpression(stmt.var.object, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+                    ...(stmt.var.type === "IndexExpression" && { index: transformExpression(stmt.var.index, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) }),
                 },
-                value: transformExpression(stmt.value, keys, strategies, decoderName, rng, useFragmentation),
+                value: transformExpression(stmt.value, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
             };
         case "FunctionCallStatement":
-            return { ...stmt, call: transformExpression(stmt.call, keys, strategies, decoderName, rng, useFragmentation) };
+            return { ...stmt, call: transformExpression(stmt.call, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) };
         case "ReturnStatement":
-            return { ...stmt, values: stmt.values?.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)) };
+            return { ...stmt, values: stmt.values?.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)) };
         case "IfStatement":
             return {
                 ...stmt,
-                condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation),
-                thenBody: stmt.thenBody.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+                thenBody: stmt.thenBody.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
                 elseifClauses: stmt.elseifClauses?.map((c) => ({
                     ...c,
-                    condition: transformExpression(c.condition, keys, strategies, decoderName, rng, useFragmentation),
-                    body: c.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                    condition: transformExpression(c.condition, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+                    body: c.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
                 })),
-                elseBody: stmt.elseBody?.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                elseBody: stmt.elseBody?.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         case "ForNumericStatement":
             return {
                 ...stmt,
-                start: transformExpression(stmt.start, keys, strategies, decoderName, rng, useFragmentation),
-                end: transformExpression(stmt.end, keys, strategies, decoderName, rng, useFragmentation),
-                step: stmt.step ? transformExpression(stmt.step, keys, strategies, decoderName, rng, useFragmentation) : undefined,
-                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                start: transformExpression(stmt.start, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+                end: transformExpression(stmt.end, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly),
+                step: stmt.step ? transformExpression(stmt.step, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) : undefined,
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         case "ForInStatement":
             return {
                 ...stmt,
-                iter: stmt.iter.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation)),
-                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                iter: stmt.iter.map((e) => transformExpression(e, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         case "LocalFunctionStatement":
         case "FunctionStatement":
             return {
                 ...stmt,
                 params: stmt.params,
-                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         case "DoStatement":
         case "WhileStatement":
         case "RepeatStatement":
             return {
                 ...stmt,
-                ...(stmt.type === "WhileStatement" && { condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation) }),
-                ...(stmt.type === "RepeatStatement" && { condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation) }),
-                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation)),
+                ...(stmt.type === "WhileStatement" && { condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) }),
+                ...(stmt.type === "RepeatStatement" && { condition: transformExpression(stmt.condition, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly) }),
+                body: stmt.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly)),
             };
         default:
             return stmt;
@@ -579,14 +861,17 @@ export function encodeStrings(ast, options = {}) {
     const strategies = options.strategies ?? ["xor", "add-rotate", "sbox"];
     const keys = [seed & 0xff, (seed + 0x1A) & 0xff, (seed + 0x3B) & 0xff, (seed + 0x5C) & 0xff];
     const useFragmentation = options.useFragmentation ?? true;
-    const decoderName = `_clydeDec_${Math.random().toString(36).substring(2, 8)}`;
+    const level = options.level ?? 2;
+    const useCrc8 = options.crc8 !== false && level >= 3;
+    const crcPoly = 0x07 | ((seed ^ (seed >> 8)) & 0xF8);
+    const decoderName = `_uDec_${Math.random().toString(36).substring(2, 8)}`;
     const loc = ast.body[0]?.loc ?? { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };
     const sboxTables = [];
     for (let i = 0; i < 2; i++) {
         sboxTables.push(generateSbox(rng));
     }
-    const decoders = makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName);
-    const transformedBody = ast.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation));
+    const decoders = makeDecoderStatements(strategies, keys, sboxTables, loc, decoderName, useCrc8, crcPoly);
+    const transformedBody = ast.body.map((s) => transformStatement(s, keys, strategies, decoderName, rng, useFragmentation, useCrc8, crcPoly));
     return {
         ...ast,
         body: [...decoders, ...transformedBody],

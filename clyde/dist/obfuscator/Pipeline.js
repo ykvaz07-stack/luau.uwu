@@ -9,6 +9,8 @@ import { scrambleTableFields } from "./TableFieldScrambler.js";
 import { protectWithMetatables } from "./MetatableProtector.js";
 import { injectAntiDebug } from "./AntiDebugInjector.js";
 import { embedWatermark } from "./WatermarkEngine.js";
+import { applyControlFlowDoubling } from "./ControlFlowDoubling.js";
+import { scrambleArrays } from "./ArrayScrambler.js";
 import { compilePhantom } from "../vm/phantom-compiler.js";
 import { generatePhantomVM } from "../vm/phantom-vm-gen.js";
 function createRng(seed) {
@@ -54,6 +56,8 @@ function getPassesForLevel(level, baseSeed) {
     passes.push({ name: "antiDebug", fn: injectAntiDebug, options: { seed: baseSeed + 12, intensity: 0.7 } });
     passes.push({ name: "functionCallObfuscation", fn: obfuscateFunctionCalls, options: { seed: baseSeed + 13, intensity: 0.8 } });
     passes.push({ name: "obfuscateNumbers", fn: obfuscateNumbers, options: { seed: baseSeed + 14, useBitops: true } });
+    passes.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: { seed: baseSeed + 15 } });
+    passes.push({ name: "scrambleArrays", fn: scrambleArrays, options: { seed: baseSeed + 16, minFields: 4 } });
     return passes;
 }
 export function runPipeline(ast, options = {}) {
@@ -83,6 +87,10 @@ export function runPipeline(ast, options = {}) {
         customPasses.push({ name: "antiDebug", fn: injectAntiDebug, options: options.antiDebug });
     if (options.watermark !== undefined)
         customPasses.push({ name: "watermark", fn: embedWatermark, options: options.watermark });
+    if (options.controlFlowDoubling !== undefined)
+        customPasses.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: options.controlFlowDoubling });
+    if (options.scrambleArrays !== undefined)
+        customPasses.push({ name: "scrambleArrays", fn: scrambleArrays, options: options.scrambleArrays });
     let passes;
     if (customPasses.length > 0) {
         passes = customPasses;

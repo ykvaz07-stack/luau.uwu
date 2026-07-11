@@ -90,7 +90,7 @@ check("9. Anti-Debug Injection", () => {
     return printChunk(injectAntiDebug(ast, { enabled: true, seed: 42 }));
 });
 check("10. Watermark Embedding", () => {
-    return printChunk(embedWatermark(ast, { enabled: true, watermark: "ClydeElite" }));
+    return printChunk(embedWatermark(ast, { enabled: true, watermark: "uwu.dll" }));
 });
 check("11. Metatable Protection", () => {
     return printChunk(protectWithMetatables(ast, { enabled: true }));

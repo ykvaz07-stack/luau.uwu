@@ -1,5 +1,5 @@
 import type { Chunk, Statement, LastStatement, Expression } from "../ast/types.js";
-import { PhantomOp, PHANTOM_OP_COUNT, phantomEmit, phantomPatch, phantomPC, phantomAddConst, RK, isRK, rkToIdx, createPhantomChunk, RK_OFFSET } from "./phantom-types.js";
+import { PhantomOp, PHANTOM_OP_COUNT, phantomEmit, phantomPatch, phantomPC, phantomAddConst, createPhantomChunk } from "./phantom-types.js";
 import type { PhantomChunk } from "./phantom-types.js";
 
 interface CompileCtx {
@@ -78,13 +78,13 @@ function compileExp(ctx: CompileCtx, exp: Expression): number {
     case "NumberLiteral": {
       const kIdx = phantomAddConst(ctx.chunk, Number(exp.value));
       const r = allocReg(ctx);
-      phantomEmit(ctx.chunk, PhantomOp.LOADK, r, RK(kIdx));
+      phantomEmit(ctx.chunk, PhantomOp.LOADK, r, kIdx);
       return r;
     }
     case "StringLiteral": {
       const kIdx = phantomAddConst(ctx.chunk, exp.value);
       const r = allocReg(ctx);
-      phantomEmit(ctx.chunk, PhantomOp.LOADK, r, RK(kIdx));
+      phantomEmit(ctx.chunk, PhantomOp.LOADK, r, kIdx);
       return r;
     }
     case "Identifier": {
@@ -102,7 +102,7 @@ function compileExp(ctx: CompileCtx, exp: Expression): number {
       }
       const kIdx = phantomAddConst(ctx.chunk, exp.name);
       const r = allocReg(ctx);
-      phantomEmit(ctx.chunk, PhantomOp.GETGLOBAL, r, RK(kIdx));
+      phantomEmit(ctx.chunk, PhantomOp.GETGLOBAL, r, kIdx);
       return r;
     }
     case "VarargExpression": {
@@ -207,7 +207,10 @@ function compileExp(ctx: CompileCtx, exp: Expression): number {
       const objReg = compileExp(ctx, exp.object);
       const methodK = phantomAddConst(ctx.chunk, exp.method);
       const methodReg = allocReg(ctx);
-      phantomEmit(ctx.chunk, PhantomOp.GETTABLE, methodReg, objReg, RK(methodK));
+      const keyReg = allocReg(ctx);
+      phantomEmit(ctx.chunk, PhantomOp.LOADK, keyReg, methodK);
+      phantomEmit(ctx.chunk, PhantomOp.GETTABLE, methodReg, objReg, keyReg);
+      freeReg(ctx);
       const argRegs: number[] = [objReg];
       for (const a of exp.args) {
         argRegs.push(compileExp(ctx, a));
@@ -230,11 +233,20 @@ function compileExp(ctx: CompileCtx, exp: Expression): number {
         if (field.kind === "value") {
           const valReg = compileExp(ctx, field.value);
           const kIdx = phantomAddConst(ctx.chunk, listIdx++);
-          phantomEmit(ctx.chunk, PhantomOp.SETTABLE, tblReg, RK(kIdx), valReg);
-          freeReg(ctx);
+          const keyReg = allocReg(ctx);
+          phantomEmit(ctx.chunk, PhantomOp.LOADK, keyReg, kIdx);
+          phantomEmit(ctx.chunk, PhantomOp.SETTABLE, tblReg, keyReg, valReg);
+          freeReg(ctx); freeReg(ctx);
         } else if (field.kind === "index") {
           const keyReg = compileExp(ctx, field.index);
           const valReg = compileExp(ctx, field.value);
+          phantomEmit(ctx.chunk, PhantomOp.SETTABLE, tblReg, keyReg, valReg);
+          freeReg(ctx); freeReg(ctx);
+        } else if (field.kind === "named") {
+          const kIdx = phantomAddConst(ctx.chunk, field.name);
+          const valReg = compileExp(ctx, field.value);
+          const keyReg = allocReg(ctx);
+          phantomEmit(ctx.chunk, PhantomOp.LOADK, keyReg, kIdx);
           phantomEmit(ctx.chunk, PhantomOp.SETTABLE, tblReg, keyReg, valReg);
           freeReg(ctx); freeReg(ctx);
         }
@@ -268,8 +280,10 @@ function compileExp(ctx: CompileCtx, exp: Expression): number {
       const obj = compileExp(ctx, exp.object);
       const kIdx = phantomAddConst(ctx.chunk, exp.property);
       const r = allocReg(ctx);
-      phantomEmit(ctx.chunk, PhantomOp.GETTABLE, r, obj, RK(kIdx));
-      freeReg(ctx);
+      const keyReg = allocReg(ctx);
+      phantomEmit(ctx.chunk, PhantomOp.LOADK, keyReg, kIdx);
+      phantomEmit(ctx.chunk, PhantomOp.GETTABLE, r, obj, keyReg);
+      freeReg(ctx); freeReg(ctx);
       return r;
     }
     case "StringInterpolation":
@@ -338,7 +352,10 @@ function compileStmt(ctx: CompileCtx, stmt: Statement | LastStatement): void {
         const objReg = compileExp(ctx, call.object);
         const methodK = phantomAddConst(ctx.chunk, call.method);
         const methodReg = allocReg(ctx);
-        phantomEmit(ctx.chunk, PhantomOp.GETTABLE, methodReg, objReg, RK(methodK));
+        const keyReg = allocReg(ctx);
+        phantomEmit(ctx.chunk, PhantomOp.LOADK, keyReg, methodK);
+        phantomEmit(ctx.chunk, PhantomOp.GETTABLE, methodReg, objReg, keyReg);
+        freeReg(ctx);
         phantomEmit(ctx.chunk, PhantomOp.MOVE, methodReg + 1, objReg);
         const nArgs = 1 + call.args.length;
         for (let i = 0; i < call.args.length; i++) {
@@ -370,7 +387,7 @@ function compileStmt(ctx: CompileCtx, stmt: Statement | LastStatement): void {
                 phantomEmit(ctx.chunk, PhantomOp.SETUPVAL, valRegs[i], uv[0], uv[1]);
               } else {
                 const kIdx = phantomAddConst(ctx.chunk, v.name);
-                phantomEmit(ctx.chunk, PhantomOp.SETGLOBAL, RK(kIdx), valRegs[i]);
+                phantomEmit(ctx.chunk, PhantomOp.SETGLOBAL, kIdx, valRegs[i]);
               }
             }
           } else if (v.type === "IndexExpression") {
@@ -381,8 +398,10 @@ function compileStmt(ctx: CompileCtx, stmt: Statement | LastStatement): void {
           } else if (v.type === "MemberExpression") {
             const objReg = compileExp(ctx, v.object);
             const kIdx = phantomAddConst(ctx.chunk, v.property);
-            phantomEmit(ctx.chunk, PhantomOp.SETTABLE, objReg, RK(kIdx), valRegs[i]);
-            freeReg(ctx);
+            const keyReg = allocReg(ctx);
+            phantomEmit(ctx.chunk, PhantomOp.LOADK, keyReg, kIdx);
+            phantomEmit(ctx.chunk, PhantomOp.SETTABLE, objReg, keyReg, valRegs[i]);
+            freeReg(ctx); freeReg(ctx);
           }
         }
         for (const r of valRegs) freeReg(ctx);
@@ -487,7 +506,7 @@ function compileStmt(ctx: CompileCtx, stmt: Statement | LastStatement): void {
         phantomEmit(ctx.chunk, PhantomOp.MOVE, varReg + 2, stepReg2);
         freeReg(ctx);
       } else {
-        phantomEmit(ctx.chunk, PhantomOp.LOADK, varReg + 2, RK(phantomAddConst(ctx.chunk, 1)));
+        phantomEmit(ctx.chunk, PhantomOp.LOADK, varReg + 2, phantomAddConst(ctx.chunk, 1));
       }
       if (varName) ctx.regs.set(varName, varReg);
       const prepPc = phantomPC(ctx.chunk);
@@ -497,6 +516,7 @@ function compileStmt(ctx: CompileCtx, stmt: Statement | LastStatement): void {
       ctx.loopJumps.pop();
       const loopPc = phantomPC(ctx.chunk);
       phantomEmit(ctx.chunk, PhantomOp.FORLOOP, varReg, loopPc - prepPc);
+      phantomPatch(ctx.chunk, prepPc, 'C', loopPc - prepPc + 1);
       break;
     }
     case "ForInStatement": {
@@ -504,26 +524,62 @@ function compileStmt(ctx: CompileCtx, stmt: Statement | LastStatement): void {
       const vars = s.vars || [];
       const iter = s.iter || [];
       const body = s.body || [];
-      for (const exp of iter) compileExp(ctx, exp);
-      const tForPc = phantomPC(ctx.chunk);
-      phantomEmit(ctx.chunk, PhantomOp.TFORLOOP);
-      for (let i = 0; i < vars.length; i++) {
-        ctx.regs.set(vars[i].name, i);
+      const baseReg = allocReg(ctx);
+      if (iter.length === 1 && iter[0].type === "CallExpression") {
+        const ce = iter[0];
+        const calleeReg = compileExp(ctx, ce.callee);
+        phantomEmit(ctx.chunk, PhantomOp.MOVE, baseReg, calleeReg);
+        freeReg(ctx);
+        const argRegs: number[] = [];
+        for (const a of ce.args) {
+          argRegs.push(compileExp(ctx, a));
+        }
+        for (let i = 0; i < argRegs.length; i++) {
+          phantomEmit(ctx.chunk, PhantomOp.MOVE, baseReg + 1 + i, argRegs[i]);
+          freeReg(ctx);
+        }
+        phantomEmit(ctx.chunk, PhantomOp.CALL, baseReg, argRegs.length, 3);
+        if (argRegs.length < 2) {
+          for (let i = 1 + argRegs.length; i < 3; i++) {
+            phantomEmit(ctx.chunk, PhantomOp.LOADNIL, baseReg + i);
+          }
+        }
+      } else {
+        for (let i = 0; i < Math.min(iter.length, 3); i++) {
+          const tmp = compileExp(ctx, iter[i]);
+          phantomEmit(ctx.chunk, PhantomOp.MOVE, baseReg + i, tmp);
+          freeReg(ctx);
+        }
+        for (let i = iter.length; i < 3; i++) {
+          phantomEmit(ctx.chunk, PhantomOp.LOADNIL, baseReg + i);
+        }
       }
-      ctx.loopJumps.push({ pc: -1, stack: ctx.nextReg, target: phantomPC(ctx.chunk) });
+      for (let i = 0; i < vars.length; i++) {
+        ctx.regs.set(vars[i].name, baseReg + 3 + i);
+      }
+      ctx.chunk.maxRegs = Math.max(ctx.chunk.maxRegs, baseReg + 3 + vars.length);
+      const entryJmp = phantomPC(ctx.chunk);
+      phantomEmit(ctx.chunk, PhantomOp.JMP, 0, 0, 0);
+      const bodyStart = phantomPC(ctx.chunk);
+      ctx.loopJumps.push({ pc: -1, stack: ctx.nextReg, target: bodyStart });
       compileStmts(ctx, body);
       ctx.loopJumps.pop();
-      phantomEmit(ctx.chunk, PhantomOp.JMP, tForPc - phantomPC(ctx.chunk));
+      const loopEnd = phantomPC(ctx.chunk);
+      phantomEmit(ctx.chunk, PhantomOp.TFORLOOP, baseReg, vars.length, bodyStart - loopEnd);
+      ctx.chunk.maxRegs = Math.max(ctx.chunk.maxRegs, baseReg + 3 + vars.length);
+      phantomPatch(ctx.chunk, entryJmp, 'A', loopEnd - entryJmp);
       break;
     }
     case "ReturnStatement": {
       const s = stmt as any;
       if (s.values && s.values.length > 0) {
+        let firstReg = 0;
         for (let i = 0; i < s.values.length; i++) {
           const reg = compileExp(ctx, s.values[i]);
+          if (i === 0) firstReg = reg;
           if (i > 0) freeReg(ctx);
         }
-        phantomEmit(ctx.chunk, PhantomOp.RETURN, 0, s.values.length);
+        phantomEmit(ctx.chunk, PhantomOp.RETURN, firstReg, s.values.length);
       } else {
         phantomEmit(ctx.chunk, PhantomOp.RETURN);
       }

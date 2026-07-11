@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isAdminEmail, isRateLimitExempt } from "@/lib/admin-check";
 
 async function getAuthUser() {
   const cookieStore = await cookies();
@@ -38,16 +39,18 @@ export async function POST(request: Request) {
 
     const supabase = await getAdminClient();
 
-    // Rate limit: 1 ticket per 24h
-    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-    const { count: recentTickets } = await supabase
-      .from("tickets")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .gte("created_at", oneDayAgo);
+    // Rate limit: 1 ticket per 24h (exempt hubqoo)
+    if (!isRateLimitExempt(user.email)) {
+      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+      const { count: recentTickets } = await supabase
+        .from("tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", oneDayAgo);
 
-    if (recentTickets && recentTickets >= 1) {
-      return NextResponse.json({ error: "You can only create 1 ticket per 24 hours" }, { status: 429 });
+      if (recentTickets && recentTickets >= 1) {
+        return NextResponse.json({ error: "You can only create 1 ticket per 24 hours" }, { status: 429 });
+      }
     }
 
     const { data: ticket, error: ticketError } = await supabase
@@ -83,8 +86,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = await getAdminClient();
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    const isAdmin = adminEmail ? user.email === adminEmail : false;
+    const isAdmin = isAdminEmail(user.email);
 
     const url = new URL(request.url);
     const ticketId = url.searchParams.get("id");

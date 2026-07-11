@@ -49,7 +49,7 @@ export interface PhantomChunk {
     upvalues?: [number, number][];
 }
 export declare function phantomEmit(chunk: PhantomChunk, op: PhantomOp, A?: number, B?: number, C?: number): number;
-export declare function phantomPatch(chunk: PhantomChunk, pos: number, field: 'A' | 'B' | 'C', value: number): void;
+export declare function phantomPatch(chunk: PhantomChunk, pc: number, field: 'A' | 'B' | 'C', value: number): void;
 export declare function phantomPC(chunk: PhantomChunk): number;
 export declare function phantomAddConst(chunk: PhantomChunk, value: null | boolean | number | string): number;
 export declare function createPhantomChunk(): PhantomChunk;

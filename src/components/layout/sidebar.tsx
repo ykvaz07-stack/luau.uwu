@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { isAdminEmail } from "@/lib/admin-check";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -61,11 +62,8 @@ export function Sidebar() {
     getPlan().then(setUserPlan);
     const supabase = createClient();
     if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-        if (adminEmail && data.user.email === adminEmail) setIsAdmin(true);
-      }
+    supabase.auth.getUser().then((result: { data: { user: { email?: string } | null } }) => {
+      if (result.data.user && isAdminEmail(result.data.user.email)) setIsAdmin(true);
     });
   }, []);
 

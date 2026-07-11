@@ -1,7 +1,7 @@
 {
-  "name": "luau-obfuscator",
-  "version": "0.1.0",
-  "description": "Luau parser and obfuscator with full Luau support",
+  "name": "uwu-dll",
+  "version": "1.0.0",
+  "description": "uwu.dll — premium Luau obfuscator surpassing Luraph v14.7+",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -17,7 +17,8 @@
     "luau",
     "obfuscator",
     "parser",
-    "roblox"
+    "roblox",
+    "uwu-dll"
   ],
   "license": "MIT",
   "devDependencies": {

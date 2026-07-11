@@ -10,6 +10,8 @@ import { type TableFieldScramblerOptions } from "./TableFieldScrambler.js";
 import { type MetatableProtectorOptions } from "./MetatableProtector.js";
 import { type AntiDebugInjectorOptions } from "./AntiDebugInjector.js";
 import { type WatermarkEngineOptions } from "./WatermarkEngine.js";
+import { type ControlFlowDoublingOptions } from "./ControlFlowDoubling.js";
+import { type ArrayScramblerOptions } from "./ArrayScrambler.js";
 import type { PhantomGenOptions } from "../vm/phantom-vm-gen.js";
 export type ProtectionLevel = "low" | "medium" | "high" | "max";
 export interface PipelineOptions {
@@ -24,6 +26,8 @@ export interface PipelineOptions {
     metatableProtection?: MetatableProtectorOptions;
     antiDebug?: AntiDebugInjectorOptions;
     watermark?: WatermarkEngineOptions;
+    controlFlowDoubling?: ControlFlowDoublingOptions;
+    scrambleArrays?: ArrayScramblerOptions;
     phantomVM?: PhantomGenOptions;
     protectionLevel?: ProtectionLevel;
     seed?: number;

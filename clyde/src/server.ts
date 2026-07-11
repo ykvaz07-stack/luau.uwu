@@ -130,9 +130,9 @@ app.post("/api/obfuscate", (req: express.Request, res: express.Response) => {
 });
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "clyde-obfuscator" });
+  res.json({ status: "ok", service: "uwu-dll" });
 });
 
 app.listen(PORT, () => {
-  console.log(`[Clyde] Obfuscator running on http://localhost:${PORT}`);
+  console.log(`[uwu.dll] Obfuscator running on http://localhost:${PORT}`);
 });

@@ -81,7 +81,7 @@ function obfuscateNum(n: number, rng: () => number): string {
 }
 
 export function generateBootstrap(config: BootstrapConfig): string {
-  const { vmBlob, vmOrigLen, xorKey, invSbox, checksum, chunkName = "Clyde", rng } = config;
+  const { vmBlob, vmOrigLen, xorKey, invSbox, checksum, chunkName = "uwu.dll", rng } = config;
 
   const prefixes = ["_0", "_1", "_2", "_3", "_4", "_5"];
   const suffixes = "abcdefghjkmnpqrstuvwx".split('');
@@ -96,9 +96,9 @@ export function generateBootstrap(config: BootstrapConfig): string {
   let ni = 0;
   const N = () => allNames[ni++];
 
-  const nByte = N(), nGsub = N(), nPack = N(), nSub = N(), nChar = N();
+  const nByte = N(), nGsub = N(), nSub = N(), nChar = N();
   const nLoad = N(), nAssert = N(), nType = N(), nBxor = N(), nPcall = N();
-  const nTconcat = N(), nBand = N();
+  const nTconcat = N(), nBand = N(), nRshift = N(), nUnpack = N();
 
   const nDecode = N(), nDecrypt = N(), nVerify = N();
   const nKeyInteg = N(), nSboxInteg = N(), nMutate = N();
@@ -158,10 +158,10 @@ export function generateBootstrap(config: BootstrapConfig): string {
 
   {
     const builtins: [string, string][] = [
-      [nByte, 'string.byte'], [nGsub, 'string.gsub'], [nPack, 'string.pack'],
-      [nSub, 'string.sub'], [nChar, 'string.char'], [nLoad, 'loadstring'],
-      [nAssert, 'assert'], [nType, 'type'], [nBxor, 'bit32.bxor'],
-      [nPcall, 'pcall'], [nTconcat, 'table.concat'], [nBand, 'bit32.band'],
+      [nByte, 'string.byte'], [nGsub, 'string.gsub'], [nSub, 'string.sub'],
+      [nChar, 'string.char'], [nLoad, '(rawget(_G,"loadstring")or rawget(_G,"load"))'], [nAssert, 'assert'],
+      [nType, 'type'], [nBxor, 'bit32.bxor'], [nPcall, 'pcall'],
+      [nTconcat, 'table.concat'], [nBand, 'bit32.band'], [nUnpack, 'table.unpack'],
     ];
     shuffle(builtins, rng);
     let bi = 0;
@@ -280,9 +280,12 @@ export function generateBootstrap(config: BootstrapConfig): string {
     `for i=1,#s,5 do`,
     `local d,e,f,g,h=${nByte}(s,i,i+4)`,
     `local v=(d-33)*52200625+(e-33)*614125+(f-33)*7225+(g-33)*85+(h-33)`,
-    `o[#o+1]=${nPack}(">I4",v)`,
+    `o[#o+1]=${nBand}(${nRshift}(v,24),0xFF)`,
+    `o[#o+1]=${nBand}(${nRshift}(v,16),0xFF)`,
+    `o[#o+1]=${nBand}(${nRshift}(v,8),0xFF)`,
+    `o[#o+1]=${nBand}(v,0xFF)`,
     `end`,
-    `return ${nSub}(${nTconcat}(o),1,${vmOrigLen})`,
+    `return ${nSub}(${nChar}(${nUnpack}(o)),1,${vmOrigLen})`,
     `end`,
   ];
   fragments.push({ code: decoderLines.join('\n'), layer: L_FUNCS });
@@ -404,7 +407,7 @@ export function generateBootstrap(config: BootstrapConfig): string {
   ].join('\n') });
 
   cases.push({ id: stExec, code: [
-    `${nAssert}(${nOk} and ${nFn} and ${nType}(${nFn})=="function","Clyde Protection v2")`,
+    `${nAssert}(${nOk} and ${nFn} and ${nType}(${nFn})=="function","uwu.dll v2")`,
     `${nResult}=${nFn}(...)`,
 
     `for _0i=1,256 do ${nSbox}[_0i]=0 end`,
@@ -431,31 +434,23 @@ export function generateBootstrap(config: BootstrapConfig): string {
 
   shuffle(cases, rng);
 
-  const nEnvCheck = N();
-  assembled.push(`local ${nEnvCheck}=${nType}(${nLoad})..${nType}(${nPcall})`);
-  assembled.push(`if ${nEnvCheck}~="functionfunction" then return nil end`);
-
   {
-    const chL2 = obfuscateNum(108, rng);
-    const chWarn = [119,97,114,110].map(c => obfuscateNum(c, rng)).join(',');
-    const chGame = [103,97,109,101].map(c => obfuscateNum(c, rng)).join(',');
-    const chGS = [71,101,116,83,101,114,118,105,99,101].map(c => obfuscateNum(c, rng)).join(',');
-    const chPlayers = [80,108,97,121,101,114,115].map(c => obfuscateNum(c, rng)).join(',');
-    const chLP = [76,111,99,97,108,80,108,97,121,101,114].map(c => obfuscateNum(c, rng)).join(',');
-    const chKick = [75,105,99,107].map(c => obfuscateNum(c, rng)).join(',');
+    const chTick = [116,105,99,107].map(c => obfuscateNum(c, rng)).join(',');
+    const chClock = [111,115,46,99,108,111,99,107].map(c => obfuscateNum(c, rng)).join(',');
+    const chDt = [68,97,116,101,84,105,109,101].map(c => obfuscateNum(c, rng)).join(',');
+    const chNow = [78,111,119].map(c => obfuscateNum(c, rng)).join(',');
+    const chTMs = [85,110,105,120,84,105,109,101,115,116,97,109,112,77,105,108,108,105,115].map(c => obfuscateNum(c, rng)).join(',');
 
-    const floodChars = Array.from({length: 8}, () => obfuscateNum(65 + Math.floor(rng() * 26), rng)).join(',');
-    const floodCount = obfuscateNum(100 + Math.floor(rng() * 400), rng);
+    const tNow = N();
+    const tFn = N();
 
-    assembled.push(`if ${nLineRef}>0 and ${nDbgRef}(${obfuscateNum(1, rng)},${nChar}(${chL2}))~=${nLineRef} then`);
-
-    assembled.push(`${nLoad}=function() return nil end`);
-
-    assembled.push(`${nPcall}(function() local _w=rawget(_G,${nChar}(${chWarn})) if _w then for _0i=1,${floodCount} do _w(${nChar}(${floodChars})) end end end)`);
-
-    assembled.push(`${nPcall}(function() local _g=rawget(_G,${nChar}(${chGame})) local _p=_g[${nChar}(${chGS})](_g,${nChar}(${chPlayers})) local _lp=_p[${nChar}(${chLP})] _lp[${nChar}(${chKick})](_lp) end)`);
-    assembled.push(`end`);
+    assembled.push(`local ${tFn}=(function() local _t=crypt and crypt.time or rawget(_G,${nChar}(${chTick})) or rawget(_G,${nChar}(${chClock}))`);
+    assembled.push(`if not _t and rawget(_G,${nChar}(${chDt})) then local _dt=rawget(_G,${nChar}(${chDt}))`);
+    assembled.push(`_t=function() local _d=_dt[${nChar}(${chNow})]();return _d and _d[${nChar}(${chTMs})] or 0 end end`);
+    assembled.push(`return _t or function() return 0 end end)()`);
   }
+
+  assembled.push(`local ${nRaw},${nDec},${nOk},${nFn},${nResult}`);
 
   assembled.push(`local ${nRaw},${nDec},${nOk},${nFn},${nResult}`);
   assembled.push(`local ${nState}=${stDecode}`);

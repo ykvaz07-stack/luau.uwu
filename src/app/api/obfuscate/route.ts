@@ -11,7 +11,7 @@ import {
   regCompile,
   generateVM,
   generateRegVM,
-} from "../../../../clyde/dist/obfuscation.js";
+} from "../../../../uwu-dll/dist/obfuscation.js";
 
 interface ObfuscateRequest {
   script_id: string;

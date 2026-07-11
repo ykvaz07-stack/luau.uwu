@@ -60,9 +60,9 @@ export function phantomEmit(chunk: PhantomChunk, op: PhantomOp, A = 0, B = 0, C 
   return pos;
 }
 
-export function phantomPatch(chunk: PhantomChunk, pos: number, field: 'A' | 'B' | 'C', value: number): void {
+export function phantomPatch(chunk: PhantomChunk, pc: number, field: 'A' | 'B' | 'C', value: number): void {
   const offset = field === 'A' ? 1 : field === 'B' ? 2 : 3;
-  chunk.code[pos + offset] = value;
+  chunk.code[pc * 4 + offset] = value;
 }
 
 export function phantomPC(chunk: PhantomChunk): number {

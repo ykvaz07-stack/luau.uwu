@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Shield,
@@ -24,9 +24,12 @@ import {
   MessageSquare,
   Send,
   User,
+  Globe,
+  RefreshCw,
 } from "lucide-react";
 import { MotionDiv } from "@/components/motion";
 import { CodeEditor } from "@/components/ui/code-editor";
+import { isAdminEmail } from "@/lib/admin-check";
 
 type AdminTab = "overview" | "users" | "payments" | "keys" | "announcements" | "tickets" | "osint";
 
@@ -129,8 +132,7 @@ export default function AdminPage() {
       if (!supabase) { setChecking(false); return; }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-        if (adminEmail && user.email === adminEmail) {
+        if (isAdminEmail(user.email)) {
           setIsAdmin(true);
           await fetchAdminData();
         } else {
@@ -151,6 +153,7 @@ export default function AdminPage() {
       setKeys(json.keys ?? []);
       setPurchases(json.purchasesWithEmail ?? []);
       setAnnouncements((json.announcements ?? []) as AnnouncementData[]);
+      setUsers((json.authUsers ?? []) as UserData[]);
     } catch {
       setStats(null);
     }
@@ -167,45 +170,6 @@ export default function AdminPage() {
     setLoading(false);
     setChecking(false);
   }
-
-  const loadUsers = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/stats");
-      const json = await res.json();
-      const authUsers = json.authUsers ?? [];
-      const supabase = createClient();
-      if (!supabase) return;
-      const s = supabase;
-      const subsRes = await s.from("subscriptions").select("user_id, plan");
-      const scriptsRes = await s.from("scripts").select("project_id, projects(user_id)");
-      const keysRes = await s.from("keys").select("id, projects(user_id)");
-
-      const subMap = new Map((subsRes.data ?? []).map((s: { user_id: string; plan: string }) => [s.user_id, s.plan]));
-      const scriptCountMap = new Map<string, number>();
-      const keyCountMap = new Map<string, number>();
-
-      (scriptsRes.data ?? []).forEach((s: { projects?: { user_id: string } }) => {
-        const uid = s.projects?.user_id;
-        if (uid) scriptCountMap.set(uid, (scriptCountMap.get(uid) || 0) + 1);
-      });
-      (keysRes.data ?? []).forEach((k: { projects?: { user_id: string } }) => {
-        const uid = k.projects?.user_id;
-        if (uid) keyCountMap.set(uid, (keyCountMap.get(uid) || 0) + 1);
-      });
-
-      const mapped: UserData[] = (authUsers ?? []).map((u: { id: string; email: string; created_at: string; last_sign_in_at: string | null }) => ({
-        id: u.id,
-        email: u.email ?? "unknown",
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at ?? null,
-        plan: subMap.get(u.id) || "free",
-        scriptCount: scriptCountMap.get(u.id) || 0,
-        keyCount: keyCountMap.get(u.id) || 0,
-      }));
-
-      setUsers(mapped);
-    } catch {}
-  }, []);
 
   async function loadUserScripts(userId: string) {
     const supabase = createClient();
@@ -332,13 +296,11 @@ export default function AdminPage() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={async () => {
-              setActiveTab(tab.id);
-              if (tab.id === "users") { await loadUsers(); return; }
-              if (tab.id === "osint") { await fetchOsint(); return; }
-              // For other tabs, close admin ticket panel if open
-              if (tab.id !== "tickets") setSelectedAdminTicket(null);
-            }}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.id === "osint") { fetchOsint(); }
+                if (tab.id !== "tickets") setSelectedAdminTicket(null);
+              }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-white/5"
             }`}
@@ -355,13 +317,15 @@ export default function AdminPage() {
       {/* Tab Content */}
       {activeTab === "overview" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
-              { label: "Scripts", value: stats?.totalScripts ?? 0, icon: FileCode },
-              { label: "Active Keys", value: stats?.activeKeys ?? 0, icon: Key },
-              { label: "Revenue", value: `$${stats?.totalRevenue ?? 0}`, icon: CreditCard },
-              { label: "Subscriptions", value: stats?.activeSubscriptions ?? 0, icon: Users },
-            ].map((s) => (
+                { label: "Total Users", value: stats?.totalUsers ?? 0, icon: Users },
+                { label: "Scripts", value: stats?.totalScripts ?? 0, icon: FileCode },
+                { label: "Active Keys", value: stats?.activeKeys ?? 0, icon: Key },
+                { label: "Revenue", value: `$${stats?.totalRevenue ?? 0}`, icon: CreditCard },
+                { label: "Pending Payments", value: stats?.pendingPayments ?? 0, icon: Clock },
+                { label: "Subscriptions", value: stats?.activeSubscriptions ?? 0, icon: Shield },
+              ].map((s) => (
               <div key={s.label} className="rounded-xl glass p-4">
                 <s.icon className="h-6 w-6 text-primary mb-2" />
                 <div className="text-2xl font-bold">{s.value}</div>
@@ -407,15 +371,38 @@ export default function AdminPage() {
                     <td className="py-3 px-4 text-sm hidden md:table-cell">{user.scriptCount ?? 0}</td>
                     <td className="py-3 px-4 text-sm hidden md:table-cell">{user.keyCount ?? 0}</td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          loadUserScripts(user.id);
-                        }}
-                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-lg transition-colors"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            loadUserScripts(user.id);
+                          }}
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-lg transition-colors"
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const plans = ["free", "pro", "premium"];
+                            const current = user.plan || "free";
+                            const nextPlan = plans[(plans.indexOf(current) + 1) % plans.length];
+                            const supabase = createClient();
+                            if (!supabase) return;
+                            const existing = await supabase.from("subscriptions").select("id").eq("user_id", user.id).maybeSingle();
+                            if (existing.data) {
+                              await supabase.from("subscriptions").update({ plan: nextPlan }).eq("user_id", user.id);
+                            } else {
+                              await supabase.from("subscriptions").insert({ user_id: user.id, plan: nextPlan, status: "active" });
+                            }
+                            fetchAdminData();
+                          }}
+                          className="p-2 text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 rounded-lg transition-colors"
+                          title="Cycle plan (free→pro→premium)"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -646,6 +633,15 @@ export default function AdminPage() {
 
       {activeTab === "osint" && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">IP Intelligence</h2>
+            <button
+              onClick={fetchOsint}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <RefreshCw className="h-3 w-3" /> Refresh
+            </button>
+          </div>
           {!osintData ? (
             <div className="rounded-xl glass p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" /></div>
           ) : (
@@ -680,6 +676,7 @@ export default function AdminPage() {
                       <tr className="border-b border-white/5 sticky top-0 bg-card">
                         <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Time</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">IP</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Country</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Action</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">UA</th>
@@ -700,9 +697,12 @@ export default function AdminPage() {
                             <td className="py-2 px-3">
                               <code className="text-xs font-mono bg-white/5 px-1.5 py-0.5 rounded">{String(log.ip_address)}</code>
                             </td>
+                            <td className="py-2 px-3 text-xs whitespace-nowrap" title={String(log.country ?? "Unknown")}>
+                              {String(log.country_flag ?? "🏳️")} {String(log.country ?? "Unknown")}
+                            </td>
                             <td className="py-2 px-3 text-xs text-muted-foreground">{String(log.user_email ?? "—")}</td>
                             <td className="py-2 px-3">
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${log.action === "signup" ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500"}`}>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${log.action === "signup" ? "bg-green-500/10 text-green-500" : log.action === "start_trial" ? "bg-purple-500/10 text-purple-500" : "bg-blue-500/10 text-blue-500"}`}>
                                 {String(log.action)}
                               </span>
                             </td>

@@ -24,15 +24,16 @@ function localNumStmt(name, value, loc) {
         loc,
     };
 }
-function ifStmt(cond, thenBody, loc) {
+function localStmt(names, values, loc) {
     return {
-        type: "IfStatement",
-        condition: cond,
-        thenBody,
-        elseifClauses: [],
-        elseBody: [],
+        type: "LocalStatement",
+        vars: names.map((n) => ({ name: n, type: undefined })),
+        values,
         loc,
     };
+}
+function binaryExp(left, operator, right, loc) {
+    return { type: "BinaryExpression", operator, left, right, loc };
 }
 function splitIntoBlocks(stmts) {
     const blocks = [];
@@ -81,69 +82,202 @@ function flattenBlocks(blocks, stateVar, engine, loc) {
         stateMap.set(shuffled[i].id, i + 1);
     }
     const entryState = stateMap.get(blocks[0].id);
-    const exitState = shuffled.length + 1;
+    const xorKey = 1 + Math.floor(engine["rng"]() * 65535);
+    const xorKeyVar = `_x${stateVar.slice(2)}`;
+    const dispatchVar = `_d${stateVar.slice(2)}`;
+    const retVar = `_r${stateVar.slice(2)}`;
     const result = [];
-    result.push(localNumStmt(stateVar, entryState, loc));
-    const whileHead = {
-        type: "WhileStatement",
-        condition: { type: "BooleanLiteral", value: true, loc },
-        body: [],
-        loc,
-    };
-    const dispatcherCases = [];
+    // XOR-obfuscated state variable
+    result.push(localStmt([stateVar], [binaryExp(numExp(entryState, loc), "~", numExp(xorKey, loc), loc)], loc));
+    // XOR key
+    result.push(localNumStmt(xorKeyVar, xorKey, loc));
+    // Return value capture
+    result.push(localStmt([retVar], [{ type: "NilLiteral", loc }], loc));
+    // Build dispatch table
+    const dispatchFields = [];
     for (let i = 0; i < shuffled.length; i++) {
         const block = shuffled[i];
         const currentState = stateMap.get(block.id);
         const isExit = block.isExit;
-        const condExp = {
-            type: "BinaryExpression",
-            operator: "==",
-            left: idExp(stateVar, loc),
-            right: numExp(currentState, loc),
-            loc,
-        };
-        let blockBody;
-        if (block.body.length === 1 && isExit) {
-            blockBody = block.body;
+        let nextState;
+        if (i < shuffled.length - 1) {
+            nextState = stateMap.get(shuffled[i + 1].id);
         }
         else {
-            blockBody = [...block.body];
-            let nextState;
-            if (i < shuffled.length - 1) {
-                nextState = stateMap.get(shuffled[i + 1].id);
+            nextState = -1;
+        }
+        const bodyCopy = [...block.body];
+        const lastStmt = bodyCopy.length > 0 ? bodyCopy[bodyCopy.length - 1] : null;
+        const hasReturn = lastStmt?.type === "ReturnStatement";
+        let blockBody;
+        if (hasReturn) {
+            const ret = lastStmt;
+            bodyCopy.pop();
+            blockBody = bodyCopy;
+            const retValues = ret.values || [];
+            if (retValues.length > 0) {
+                blockBody.push(assignStmt([{ name: retVar }], [
+                    {
+                        type: "TableConstructor",
+                        fields: retValues.map((v) => ({ kind: "value", value: v })),
+                        loc,
+                    },
+                ], loc));
             }
             else {
-                nextState = exitState;
-            }
-            if (!isExit) {
-                blockBody.push(assignStmt([{ name: stateVar, type: undefined }], [numExp(nextState, loc)], loc));
+                blockBody.push(assignStmt([{ name: retVar }], [{ type: "TableConstructor", fields: [], loc }], loc));
             }
         }
-        const blockIf = ifStmt(condExp, blockBody, loc);
-        if (engine) {
+        else {
+            blockBody = bodyCopy;
+        }
+        let fnBody = [...blockBody];
+        // Opaque predicate inside block function
+        if (engine && engine["rng"]() > 0.4) {
             const opaque = engine.createOpaquePredicate(loc);
             if (opaque.expected) {
-                blockBody.unshift(blockIf);
-                const junkExit = { type: "BreakStatement", loc };
-                const junkGuard = {
-                    type: "IfStatement",
-                    condition: { type: "UnaryExpression", operator: "not", argument: idExp(stateVar, loc), loc },
-                    thenBody: [junkExit],
-                    elseifClauses: [],
-                    loc,
-                };
-                result.push(junkGuard);
-                continue;
+                fnBody = [
+                    {
+                        type: "IfStatement",
+                        condition: opaque.condition,
+                        thenBody: fnBody,
+                        elseifClauses: [],
+                        elseBody: [
+                            assignStmt([{ name: `_j${Math.floor(engine["rng"]() * 100000)}` }], [numExp(Math.floor(engine["rng"]() * 1000), loc)], loc),
+                        ],
+                        loc,
+                    },
+                ];
             }
         }
-        dispatcherCases.push(blockIf);
+        dispatchFields.push({
+            kind: "index",
+            index: numExp(currentState, loc),
+            value: {
+                type: "TableConstructor",
+                fields: [
+                    {
+                        kind: "named",
+                        name: "fn",
+                        value: {
+                            type: "FunctionExpression",
+                            params: [],
+                            body: fnBody,
+                            loc,
+                        },
+                    },
+                    {
+                        kind: "named",
+                        name: "next",
+                        value: numExp(nextState, loc),
+                    },
+                ],
+                loc,
+            },
+        });
     }
-    const exitBlockBody = [
-        { type: "BreakStatement", loc },
-    ];
-    dispatcherCases.push(ifStmt({ type: "BinaryExpression", operator: "==", left: idExp(stateVar, loc), right: numExp(exitState, loc), loc }, exitBlockBody, loc));
-    whileHead.body = dispatcherCases;
-    result.push(whileHead);
+    // Decoy dispatch entries
+    const deadCount = 1 + Math.floor(engine["rng"]() * 3);
+    for (let i = 0; i < deadCount; i++) {
+        const deadState = shuffled.length + 2 + i;
+        const fakeNext = 1 + Math.floor(engine["rng"]() * (shuffled.length + 1));
+        dispatchFields.push({
+            kind: "index",
+            index: numExp(deadState, loc),
+            value: {
+                type: "TableConstructor",
+                fields: [
+                    {
+                        kind: "named",
+                        name: "fn",
+                        value: {
+                            type: "FunctionExpression",
+                            params: [],
+                            body: [
+                                assignStmt([{ name: `_j${Math.floor(engine["rng"]() * 100000)}` }], [numExp(Math.floor(engine["rng"]() * 1000), loc)], loc),
+                            ],
+                            loc,
+                        },
+                    },
+                    {
+                        kind: "named",
+                        name: "next",
+                        value: numExp(fakeNext, loc),
+                    },
+                ],
+                loc,
+            },
+        });
+    }
+    // Dispatch table local
+    result.push(localStmt([dispatchVar], [{ type: "TableConstructor", fields: dispatchFields, loc }], loc));
+    // While loop
+    const tempVar = `_b${stateVar.slice(2)}`;
+    const whileCond = binaryExp(binaryExp(idExp(stateVar, loc), "~", idExp(xorKeyVar, loc), loc), "~=", numExp(-1, loc), loc);
+    result.push({
+        type: "WhileStatement",
+        condition: whileCond,
+        body: [
+            localStmt([tempVar], [
+                {
+                    type: "IndexExpression",
+                    object: idExp(dispatchVar, loc),
+                    index: binaryExp(idExp(stateVar, loc), "~", idExp(xorKeyVar, loc), loc),
+                    loc,
+                },
+            ], loc),
+            {
+                type: "FunctionCallStatement",
+                call: {
+                    type: "CallExpression",
+                    callee: {
+                        type: "MemberExpression",
+                        object: idExp(tempVar, loc),
+                        property: "fn",
+                        loc,
+                    },
+                    args: [],
+                    loc,
+                },
+                loc,
+            },
+            assignStmt([{ name: stateVar }], [
+                binaryExp({
+                    type: "MemberExpression",
+                    object: idExp(tempVar, loc),
+                    property: "next",
+                    loc,
+                }, "~", idExp(xorKeyVar, loc), loc),
+            ], loc),
+        ],
+        loc,
+    });
+    // Post-loop return
+    result.push({
+        type: "IfStatement",
+        condition: binaryExp(idExp(retVar, loc), "~=", { type: "NilLiteral", loc }, loc),
+        thenBody: [
+            {
+                type: "ReturnStatement",
+                values: [
+                    {
+                        type: "CallExpression",
+                        callee: {
+                            type: "MemberExpression",
+                            object: { type: "Identifier", name: "table", loc },
+                            property: "unpack",
+                            loc,
+                        },
+                        args: [idExp(retVar, loc)],
+                        loc,
+                    },
+                ],
+                loc,
+            },
+        ],
+        elseifClauses: [],
+        loc,
+    });
     return result;
 }
 function flattenFunctionBody(body, stateVar, engine, loc) {

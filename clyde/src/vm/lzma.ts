@@ -101,7 +101,7 @@ function invertSBox(sbox: number[]): number[] {
   return inv;
 }
 
-export interface ClydeBlob {
+export interface UwuBlob {
   blob: string;
   xorKey: number[];
   invSbox: number[];
@@ -109,7 +109,7 @@ export interface ClydeBlob {
   origLen: number;
 }
 
-export function encryptAndEncode(input: string, rng: () => number): ClydeBlob {
+export function encryptAndEncode(input: string, rng: () => number): UwuBlob {
   const encoder = new TextEncoder();
   const raw = encoder.encode(input);
   const origLen = raw.length;

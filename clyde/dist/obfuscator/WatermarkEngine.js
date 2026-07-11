@@ -18,7 +18,7 @@ export function embedWatermark(ast, options = {}) {
     const enabled = options.enabled !== false;
     if (!enabled)
         return ast;
-    const watermark = options.watermark ?? "ClydeElite";
+    const watermark = options.watermark ?? "uwu.dll";
     const seed = options.seed ?? 0;
     const rng = createRng(seed);
     const loc = ast.body[0]?.loc ?? { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };

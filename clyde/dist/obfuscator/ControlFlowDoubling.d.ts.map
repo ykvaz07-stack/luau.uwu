@@ -1,0 +1,1 @@
+{"version":3,"file":"ControlFlowDoubling.d.ts","sourceRoot":"","sources":["../../src/obfuscator/ControlFlowDoubling.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,KAAK,EAAwC,MAAM,iBAAiB,CAAC;AAGnF,MAAM,WAAW,0BAA0B;IACzC,OAAO,CAAC,EAAE,OAAO,CAAC;IAClB,IAAI,CAAC,EAAE,MAAM,CAAC;CACf;AAiGD,wBAAgB,wBAAwB,CAAC,GAAG,EAAE,KAAK,EAAE,OAAO,GAAE,0BAA+B,GAAG,KAAK,CAUpG"}

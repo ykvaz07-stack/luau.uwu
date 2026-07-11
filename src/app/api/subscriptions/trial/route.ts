@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, getAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
+import { isRateLimitExempt } from "@/lib/admin-check";
 
 export async function GET() {
   try {
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const exempt = isRateLimitExempt(user.email);
+
     const supabase = getAdminClient();
     const headersList = await headers();
     const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
@@ -51,18 +54,20 @@ export async function POST(request: Request) {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    // Anti-exploit check 1: Rate limit - max 1 trial attempt per 24h per IP
-    const { count: recentTrialAttempts } = await supabase
-      .from("ip_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("ip_address", ip)
-      .eq("action", "start_trial")
-      .gte("created_at", oneDayAgo.toISOString());
+    // Anti-exploit check 1: Rate limit - max 1 trial attempt per 24h per IP (exempt hubqoo)
+    if (!exempt) {
+      const { count: recentTrialAttempts } = await supabase
+        .from("ip_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("ip_address", ip)
+        .eq("action", "start_trial")
+        .gte("created_at", oneDayAgo.toISOString());
 
-    if (recentTrialAttempts && recentTrialAttempts > 0) {
-      return NextResponse.json({
-        error: "Trial already attempted from this IP recently. Please wait 24 hours."
-      }, { status: 429 });
+      if (recentTrialAttempts && recentTrialAttempts > 0) {
+        return NextResponse.json({
+          error: "Trial already attempted from this IP recently. Please wait 24 hours."
+        }, { status: 429 });
+      }
     }
 
     // Anti-exploit check 2: Check if this user already used their trial
@@ -73,20 +78,20 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existing.data) {
-      if (existing.data.trial_used) {
+      if (existing.data.trial_used && !exempt) {
         return NextResponse.json({
           error: "Trial already used on this account."
         }, { status: 403 });
       }
-      if (existing.data.plan !== "free") {
+      if (existing.data.plan !== "free" && !exempt) {
         return NextResponse.json({
           error: "You already have an active subscription."
         }, { status: 403 });
       }
     }
 
-    // Anti-exploit check 3: Browser fingerprint duplicate check
-    if (fingerprint) {
+    // Anti-exploit check 3: Browser fingerprint duplicate check (exempt hubqoo)
+    if (fingerprint && !exempt) {
       const { data: fpMatch } = await supabase
         .from("subscriptions")
         .select("id")

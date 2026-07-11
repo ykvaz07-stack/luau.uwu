@@ -13,6 +13,7 @@ export interface VMGenOptions {
     _noWatermark?: boolean;
     forceFeatures?: FeatureFlag[];
     noCompression?: boolean;
+    splitTraces?: boolean;
 }
 export declare function generateVM(chunk: BytecodeChunk, options?: VMGenOptions): string;
 //# sourceMappingURL=vm-gen.d.ts.map

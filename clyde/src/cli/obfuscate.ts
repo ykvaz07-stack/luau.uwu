@@ -35,6 +35,7 @@ const minifyOpt = args.includes("--minify");
 const productionOpt = args.includes("--production");
 const advancedOpt = args.includes("--advanced");
 const maxOpt = args.includes("--max");
+const tripleOpt = args.includes("--triple");
 const eliteOpt = args.includes("--elite");
 const compressOpt = args.includes("--compress");
 const noCompressOpt = args.includes("--no-compress");
@@ -86,7 +87,9 @@ if (vmOpt) {
   if (vmDebug || args.includes("--no-vm-encode")) level = "debug";
   if (maxOpt || advancedOpt || productionOpt || eliteOpt) level = "max";
 
-  output = generateVM(chunk, { level, executorGlobals: level !== "debug", noCompression: noCompressOpt });
+  const nesting = tripleOpt ? 2 : 0;
+  const splitTraces = maxOpt || eliteOpt;
+  output = generateVM(chunk, { level, executorGlobals: level !== "debug", noCompression: noCompressOpt, nesting, splitTraces });
 } else {
   if (eliteOpt) {
     ast = runPipeline(ast, { protectionLevel: "max", seed, renameLocals: noRename ? { renameLocals: false } : undefined });

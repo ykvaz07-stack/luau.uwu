@@ -75,7 +75,7 @@ console.log("\n--- Phase 3: Individual Pass Verification ---");
 }
 // 3b. Check string encoding
 {
-    const hasEncoding = printChunk(runPipeline(ast, { protectionLevel: "max", seed: 42 })).includes("_clydeDec_");
+    const hasEncoding = printChunk(runPipeline(ast, { protectionLevel: "max", seed: 42 })).includes("_uDec_");
     verify("String encoding injected", () => ({ valid: hasEncoding, detail: `Decoder ${hasEncoding ? "present" : "missing"}` }));
 }
 // 3c. Check dead code

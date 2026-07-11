@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDisposableEmail, isPlusAddressedEmail } from "@/lib/anti-abuse";
+import { isRateLimitExempt } from "@/lib/admin-check";
 
 export async function POST(request: Request) {
   try {
@@ -26,18 +27,21 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // IP rate limiting — max 3 signups per 24h from same IP
     const ip = clientIp || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-    const { count, error: countError } = await supabase
-      .from("ip_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("ip_address", ip)
-      .eq("action", "signup")
-      .gte("created_at", oneDayAgo);
 
-    if (!countError && count && count >= 3) {
-      return NextResponse.json({ error: "Too many accounts created from this IP. Try again later." }, { status: 429 });
+    // IP rate limiting — max 3 signups per 24h from same IP (exempt hubqoo)
+    if (!isRateLimitExempt(email)) {
+      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+      const { count, error: countError } = await supabase
+        .from("ip_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("ip_address", ip)
+        .eq("action", "signup")
+        .gte("created_at", oneDayAgo);
+
+      if (!countError && count && count >= 3) {
+        return NextResponse.json({ error: "Too many accounts created from this IP. Try again later." }, { status: 429 });
+      }
     }
 
     // Verify code

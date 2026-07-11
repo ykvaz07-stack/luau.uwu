@@ -69,7 +69,7 @@ console.log();
 console.log("Known Luraph weakness: ~1:1 opcode-to-handler mapping");
 console.log("  makes it vulnerable to devirtualization");
 console.log();
-console.log("--- SECTION 2: Clyde Elite (actual measured results) ---");
+console.log("--- SECTION 2: uwu.dll (actual measured results) ---");
 console.log();
 const levels = ["low", "medium", "high", "max"];
 for (let li = 0; li < levels.length; li++) {
@@ -102,31 +102,31 @@ console.log("--- SECTION 3: FEATURE COMPARISON MATRIX ---");
 console.log();
 const features = [
     ["Variable/Local Renaming", "✓", "✓", "—"],
-    ["String Encryption", "✓ (single key)", "★ multi-key, 4 strategies", "Clyde"],
-    ["String Fragmentation", "✗", "★", "Clyde"],
-    ["Number Obfuscation", "✗", "★ MBA + bitwise", "Clyde"],
-    ["Mixed Boolean-Arithmetic", "✗", "★ 9 variants", "Clyde"],
-    ["Opaque Predicates", "✓ hardcoded", "★ dynamic, anti-DSE", "Clyde"],
-    ["CF Flattening (AST)", "✓ state machine", "★ shuffled blocks", "Clyde"],
-    ["Dead Code Injection", "✓ VM only", "★ AST + VM, 7 patterns", "Clyde"],
-    ["Function Call Indirection", "✗", "★", "Clyde"],
-    ["Table Field Scrambling", "✗", "★", "Clyde"],
-    ["Metatable Protection", "✗", "★", "Clyde"],
-    ["Anti-Debug Measures", "✓ basic", "★ multi-layer + env", "Clyde"],
-    ["Forensic Watermarking", "✗", "★", "Clyde"],
-    ["Unicode Confusable Names", "✗", "★", "Clyde"],
-    ["VM Virtualization", "✓ single VM", "★ dual: stack+register", "Clyde"],
-    ["Opcode Mapping", "1:1 vulnerable", "★ multi-dispatch", "Clyde"],
-    ["S-Box Cipher Layer", "✗", "★", "Clyde"],
-    ["Nested Encryption Layers", "✓ 2-3", "★ 4-5 layers", "Clyde"],
-    ["Polymorphic Bootstrap", "✗", "★", "Clyde"],
+    ["String Encryption", "✓ (single key)", "★ multi-key, 4 strategies", "uwu.dll"],
+    ["String Fragmentation", "✗", "★", "uwu.dll"],
+    ["Number Obfuscation", "✗", "★ MBA + bitwise", "uwu.dll"],
+    ["Mixed Boolean-Arithmetic", "✗", "★ 9 variants", "uwu.dll"],
+    ["Opaque Predicates", "✓ hardcoded", "★ dynamic, anti-DSE", "uwu.dll"],
+    ["CF Flattening (AST)", "✓ state machine", "★ shuffled blocks", "uwu.dll"],
+    ["Dead Code Injection", "✓ VM only", "★ AST + VM, 7 patterns", "uwu.dll"],
+    ["Function Call Indirection", "✗", "★", "uwu.dll"],
+    ["Table Field Scrambling", "✗", "★", "uwu.dll"],
+    ["Metatable Protection", "✗", "★", "uwu.dll"],
+    ["Anti-Debug Measures", "✓ basic", "★ multi-layer + env", "uwu.dll"],
+    ["Forensic Watermarking", "✗", "★", "uwu.dll"],
+    ["Unicode Confusable Names", "✗", "★", "uwu.dll"],
+    ["VM Virtualization", "✓ single VM", "★ dual: stack+register", "uwu.dll"],
+    ["Opcode Mapping", "1:1 vulnerable", "★ multi-dispatch", "uwu.dll"],
+    ["S-Box Cipher Layer", "✗", "★", "uwu.dll"],
+    ["Nested Encryption Layers", "✓ 2-3", "★ 4-5 layers", "uwu.dll"],
+    ["Polymorphic Bootstrap", "✗", "★", "uwu.dll"],
     ["Anti-Tamper Checks", "✓", "✓", "—"],
-    ["Minification Mode", "✗", "★", "Clyde"],
-    ["Protection Tiers", "✗", "★ 4 tiers", "Clyde"],
+    ["Minification Mode", "✗", "★", "uwu.dll"],
+    ["Protection Tiers", "✗", "★ 4 tiers", "uwu.dll"],
     ["Per-Build Unique Output", "✓", "✓", "—"],
     ["Luau/Roblox Support", "✓", "✓", "—"],
 ];
-console.log("  " + "Feature".padEnd(30) + " | " + "Luraph 14.7".padEnd(18) + " | " + "Clyde Elite".padEnd(18) + " | Winner");
+console.log("  " + "Feature".padEnd(30) + " | " + "Luraph 14.7".padEnd(18) + " | " + "uwu.dll".padEnd(18) + " | Winner");
 console.log("  " + "-".repeat(28) + " | " + "-".repeat(16) + " | " + "-".repeat(16) + " | " + "-".repeat(6));
 for (const row of features) {
     console.log("  " + row[0].padEnd(30) + " | " + row[1].padEnd(16) + " | " + row[2].padEnd(16) + " | " + row[3]);
@@ -177,7 +177,7 @@ console.log("  16. Minification mode");
 console.log("  17. 4 configurable protection tiers");
 console.log("  18. Anti-debug at both AST and VM levels");
 console.log();
-console.log("  VERDICT: Clyde Elite SURPASSES Luraph 14.7");
+console.log("  VERDICT: uwu.dll SURPASSES Luraph 14.7");
 console.log("  in depth (more layers), breadth (more techniques),");
 console.log("  and resilience (multi-dispatch defeats known Luraph attacks).");
 console.log("=".repeat(90));

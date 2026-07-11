@@ -6,6 +6,8 @@ export interface StringEncoderOptions {
     enabled?: boolean;
     useFragmentation?: boolean;
     strategies?: EncryptionStrategy[];
+    level?: number;
+    crc8?: boolean;
 }
 export declare function encodeStrings(ast: Chunk, options?: StringEncoderOptions): Chunk;
 export {};

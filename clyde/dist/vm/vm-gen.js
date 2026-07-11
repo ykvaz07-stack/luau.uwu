@@ -903,7 +903,7 @@ function wrapCustomCipher(source) {
     }
     maybeJunk(lines);
     const envVariant = 0;
-    lines.push(`local ${vEnv}=(type(getfenv)=="function" and getfenv(0) or _G)`);
+    lines.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or _G`);
     const builtinLines = [
         `local ${vTc}=${vEnv}[${vSc}(116,97,98,108,101)][${vSc}(99,111,110,99,97,116)]`,
         `local ${vLd}=${vEnv}[${vSc}(108,111,97,100,115,116,114,105,110,103)] or ${vEnv}[${vSc}(108,111,97,100)]`,
@@ -1166,7 +1166,7 @@ function wrapNestedVM(source) {
     };
     const emitHoneypot = () => {
         const hv1 = nn(2), hv2 = nn(2);
-        const variant = Math.floor(rng() * 14);
+        const variant = Math.floor(rng() * 22);
         switch (variant) {
             case 0: return `local ${hv1}=${rInt()} while true do ${hv1}=${vBxor}(${hv1},${rInt()}) break end`;
             case 1: return `do local ${hv1}=${rInt()} if ${hv1}>${rInt()} then ${hv1}=${hv1}-${rInt()} else ${hv1}=${hv1}+${rInt()} end end`;
@@ -1191,6 +1191,41 @@ function wrapNestedVM(source) {
             case 11: return `local ${hv1}=(function() local ${hv2}=${rInt()} while true do ${hv2}=${vBxor}(${hv2},${rInt()}) break end return ${hv2} end)()`;
             case 12: return `do local ${hv1}=${rInt()} while true do if ${hv1}>${rInt()} then ${hv1}=${vBand}(${hv1},${rInt()}) end break end end`;
             case 13: return `local ${hv1}=${rInt()} for ${hv2}=1,${1 + Math.floor(rng() * 3)} do if ${hv2}%2==0 then ${hv1}=${vBxor}(${hv1},${hv2}) else ${hv1}=${vBand}(${hv1}+${hv2},0xFFFF) end end`;
+            case 14: {
+                const eApi = ["LoadLibrary", "getscriptbytecode", "decryptbytecode", "execute", "Crypt", "HttpSpy"][Math.floor(rng() * 6)];
+                return `if ${opaquePredFalse()} then if ${eApi} then ${vEnv}[${vSc}(${encSC('error')})]("${eApi}: blocked by security policy") end end`;
+            }
+            case 15: {
+                const bd = ["backdoor", "admin", "sudo", "root", "inject", "bypass", "exploit"][Math.floor(rng() * 7)];
+                return `if ${opaquePredFalse()} then local ${hv1}="${bd}" ${vEnv}[${vSc}(${encSC('print')})]("${bd}_handler initialized") end`;
+            }
+            case 16: {
+                const tok = nn(3);
+                const sid = Math.floor(rng() * 999999999).toString(16);
+                const tid = nn(4);
+                return `if ${opaquePredFalse()} then local ${tok}="https://discord.com/api/webhooks/${sid}/${tid}" local ${hv1}=${tok} end`;
+            }
+            case 17: {
+                const det = ["Detected", "Kicked", "Banned", "Flagged", "Moderated"][Math.floor(rng() * 5)];
+                return `if ${opaquePredFalse()} then local ${hv1}="${det}" ${vEnv}[${vSc}(${encSC('warn')})]("Player ${det}") end`;
+            }
+            case 18: {
+                const ob = ["deobfuscate", "devirtualize", "unpacker", "bytecode_dump", "vm_detected"][Math.floor(rng() * 5)];
+                return `if ${opaquePredFalse()} then local ${hv1}=${vEnv}[${vSc}(${encSC('loadstring')})](${vSc}(${encSC(ob)})) if ${hv1} then ${vEnv}[${vSc}(${encSC('error')})]("anti-tamper triggered") end end`;
+            }
+            case 19: {
+                const svc = ["TeleportService", "DataStore", "MarketplaceService", "SendNotification"][Math.floor(rng() * 4)];
+                return `if ${opaquePredFalse()} then local ${hv1}=${vEnv}[${vSc}(${encSC('game')})][${vSc}(${encSC('GetService')})](${vSc}(${encSC(svc)})) if ${hv1} then ${vEnv}[${vSc}(${encSC('print')})]("${svc} connected") end end`;
+            }
+            case 20: {
+                const fakeUrl = `http://${nn(3)}.${["xyz", "top", "ru", "tk"][Math.floor(rng() * 4)]}/${nn(5)}?token=${nn(6)}&admin=1`;
+                return `if ${opaquePredFalse()} then local ${hv1}="${fakeUrl}" local ${hv2}=${vEnv}[${vSc}(${encSC('HttpService')})][${vSc}(${encSC('GetAsync')})](${hv1}) end`;
+            }
+            case 21: {
+                const flag = ["flag", "key", "license", "hwid", "auth"][Math.floor(rng() * 5)];
+                const val = nn(4);
+                return `if ${opaquePredFalse()} then local ${hv1}="${flag}=${val}" local ${hv2}=${vEnv}[${vSc}(${encSC('pcall')})](${vEnv}[${vSc}(${encSC('loadstring')})](${hv1})) end`;
+            }
             default: return `local ${hv1}=${rInt()}`;
         }
     };
@@ -1198,6 +1233,14 @@ function wrapNestedVM(source) {
         const preds = [
             `type("")=="string"`, `type(1)=="number"`, `type({})=="table"`,
             `1+1==2`, `#""==0`, `type(true)=="boolean"`, `not(1>2)`,
+        ];
+        return preds[Math.floor(rng() * preds.length)];
+    };
+    const opaquePredFalse = () => {
+        const preds = [
+            `type("")=="number"`, `type(1)=="string"`, `type({})=="number"`,
+            `1+1==3`, `#"a"==2`, `not(1==1)`, `true==false`,
+            `(1+1)*0==1`, `"a".."b"=="ab" and false`,
         ];
         return preds[Math.floor(rng() * preds.length)];
     };
@@ -1219,7 +1262,7 @@ function wrapNestedVM(source) {
         L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
     }
     L.push(emitHoneypot());
-    L.push(`local ${vEnv}=(type(getfenv)=="function" and getfenv(0) or _G)`);
+    L.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or _G`);
     const builtins = [
         `local ${vTc}=${vEnv}[${vSc}(${encSC('table')})][${vSc}(${encSC('concat')})]`,
         `local ${vLd}=${vEnv}[${vSc}(${encSC('loadstring')})] or ${vEnv}[${vSc}(${encSC('load')})]`,
@@ -1468,7 +1511,7 @@ function wrapStubVM(source) {
         L.push(`local ${a_sc}=${tv}[1][("${encStr('char')}")]`);
         L.push(`local ${a_sb}=${tv}[1][("${encStr('byte')}")]`);
     }
-    L.push(`local ${pvv},${efv}=pcall(getfenv,0)`);
+    L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
     L.push(`if not ${pvv} then ${efv}=_G end`);
     L.push(`local ${b32v}=${efv}[${a_sc}(${encSC('bit32')})]`);
     const b32Methods = [
@@ -1903,7 +1946,7 @@ function buildEnvSetup(n, level, includeExecutor) {
     const _lsEnc = _lsChars.map(c => (c + _lsKey) % 256);
     const _ldEnc = _ldChars.map(c => (c + _lsKey) % 256);
     const _tmpN = randomName(2);
-    lines.push(`local ${_ldFunc}=(function() local ${_tmpN}=${luaEsc("")};for _,_c in ipairs({${_lsEnc.join(",")}}) do ${_tmpN}=${_tmpN}..${bSC}((_c-${_lsKey}+256)%256) end;local _f=(type(getfenv)=="function" and getfenv(0) or _G)[${_tmpN}];if _f then return _f end;${_tmpN}=${luaEsc("")};for _,_c in ipairs({${_ldEnc.join(",")}}) do ${_tmpN}=${_tmpN}..${bSC}((_c-${_lsKey}+256)%256) end;return (type(getfenv)=="function" and getfenv(0) or _G)[${_tmpN}] end)()`);
+    lines.push(`local ${_ldFunc}=(function() local ${_tmpN}=${luaEsc("")};for _,_c in ipairs({${_lsEnc.join(",")}}) do ${_tmpN}=${_tmpN}..${bSC}((_c-${_lsKey}+256)%256) end;local _ok,_f=${bPC}(function() return _G[${_tmpN}] end);if _ok and _f then return _f end;${_tmpN}=${luaEsc("")};for _,_c in ipairs({${_ldEnc.join(",")}}) do ${_tmpN}=${_tmpN}..${bSC}((_c-${_lsKey}+256)%256) end;local _ok2,_f2=${bPC}(function() return _G[${_tmpN}] end);return _ok2 and _f2 or nil end)()`);
     lines.push(`local ${bLS}=${_ldFunc}`);
     const _resolver = randomName(4);
     const _xArr = randomName(2);
@@ -1943,27 +1986,23 @@ function buildEnvSetup(n, level, includeExecutor) {
     const ck = randomName(2);
     lines.push(`local function ${collatzDec}(${bp}) local ${cn}=${collatzSeed};local ${ct}={};for ${ci}=1,#${bp} do local ${ck}=${bBA}(${cn},0xFF);${ct}[${ci}]=${bSC}(${bBX}(${bp}[${ci}],${ck}));if ${cn}%2==0 then ${cn}=${bBR}(${cn},1) else ${cn}=${bBA}(${cn}*3+1,0x7FFFFFFF) end;if ${cn}<=1 then ${cn}=${bBX}(${collatzSeed},${ci}) end end;return ${bTC}(${ct}) end`);
     const resolverStyle = Math.floor(rng() * 3);
-    const encCode1 = `{${collatzEncodeString("return getgenv()", collatzSeed).join(",")}}`;
-    const encCode2 = `{${collatzEncodeString("return getfenv(0)", collatzSeed).join(",")}}`;
-    const tmpF = randomName(3);
-    const tmpR = randomName(3);
+    const genvEnc = `{${collatzEncodeString("getgenv", collatzSeed).join(",")}}`;
+    const genvCheck = `local _ggv=${bPC}(function() return _G[${collatzDec}(${genvEnc})] end);if _ggv and type(_ggv())=="table" then return _ggv() end;return _G`;
+    const tmpF = randomName(2);
     const tblEsc = luaEsc("table");
     if (resolverStyle === 0) {
         lines.push(`local ${genv}=_G`);
-        lines.push(`do local ${tmpF},${tmpR}=${bPC}(function() local _f=${bLS}(${collatzDec}(${encCode1}));if _f then return _f() end end);if ${tmpF} and ${bTY}(${tmpR})==${tblEsc} then ${genv}=${tmpR} end end`);
-        lines.push(`do local ${tmpF},${tmpR}=${bPC}(function() local _f=${bLS}(${collatzDec}(${encCode2}));if _f then return _f() end end);if ${tmpF} and ${bTY}(${tmpR})==${tblEsc} then ${genv}=${tmpR} end end`);
+        lines.push(`do local ${tmpF}=${bPC}(function() ${genvCheck} end);${tmpF}=nil end`);
     }
     else if (resolverStyle === 1) {
-        const tmpG = randomName(3);
-        lines.push(`local ${tmpG}=nil`);
-        lines.push(`do local ${tmpF},${tmpR}=${bPC}(function() return ${bLS}(${collatzDec}(${encCode1}))() end);if ${tmpF} and ${bTY}(${tmpR})==${tblEsc} then ${tmpG}=${tmpR} end end`);
-        lines.push(`if not ${tmpG} then local ${tmpF},${tmpR}=${bPC}(function() return ${bLS}(${collatzDec}(${encCode2}))() end);if ${tmpF} and ${bTY}(${tmpR})==${tblEsc} then ${tmpG}=${tmpR} end end`);
-        lines.push(`local ${genv}=${tmpG} or _G`);
+        lines.push(`local ${genv}=_G`);
+        lines.push(`do local ${tmpF}=${bPC}(function() ${genvCheck} end) end`);
     }
     else {
         const fnName = randomName(4);
-        lines.push(`local function ${fnName}() local ${tmpR};local _f=${bLS}(${collatzDec}(${encCode1}));if _f then local _o,_r=${bPC}(_f);if _o and ${bTY}(_r)==${tblEsc} then return _r end end;_f=${bLS}(${collatzDec}(${encCode2}));if _f then local _o,_r=${bPC}(_f);if _o and ${bTY}(_r)==${tblEsc} then return _r end end;return _G end`);
-        lines.push(`local ${genv}=${fnName}()`);
+        lines.push(`local function ${fnName}() ${genvCheck} end`);
+        lines.push(`local ${genv}=_G`);
+        lines.push(`${fnName}()`);
     }
     const mtStyle = Math.floor(rng() * 3);
     const fbP = randomName(2);
@@ -2241,6 +2280,33 @@ function computeCodeHash(code) {
     }
     return hash >>> 0;
 }
+function computeTraceSplits(code, numTraces) {
+    const totalLen = code.length;
+    const rawSplit = Math.floor(totalLen / numTraces);
+    const splits = [];
+    let pos = 0;
+    for (let t = 0; t < numTraces; t++) {
+        const start = pos;
+        let targetEnd = (t === numTraces - 1) ? totalLen : (t + 1) * rawSplit;
+        targetEnd = Math.min(targetEnd, totalLen);
+        while (pos < targetEnd) {
+            const op = code[pos];
+            if (op >= 0 && op < 68) {
+                pos++;
+                const ac = OPCODES_3ARG.has(op) ? 3 : OPCODES_2ARG.has(op) ? 2 : OPCODES_1ARG.has(op) ? 1 : 0;
+                pos += ac;
+            }
+            else {
+                pos++;
+            }
+        }
+        splits.push({ start: start, end: Math.min(pos, totalLen) });
+    }
+    if (splits.length > 0) {
+        splits[splits.length - 1].end = totalLen;
+    }
+    return splits;
+}
 function randomOpaqueTrue(vmNames) {
     const staticPool = [
         `math.floor(math.pi)==3`,
@@ -2311,7 +2377,7 @@ function generateAntiDebugChecks() {
     allChecks.push(`if select("#",pcall(function() end))~=2 then ${flag}=true end`);
     allChecks.push(`if type(tostring)~="function" then ${flag}=true end`);
     allChecks.push(`if type(rawget)~="function" then ${flag}=true end`);
-    allChecks.push(`do local ${t1}=(type(tick)=="function" and tick()) or 0;local _=0;for _i=1,${r1} do _=_+1 end;if ${t1}>0 and ((type(tick)=="function" and tick()) or 0)-${t1}>0.1 then ${flag}=true end end`);
+    allChecks.push(`do local _ct=_G.os and _G.os.clock or _G.tick or function() return 0 end;local ${t1}=_ct();local _=0;for _i=1,${r1} do _=_+1 end;if ${t1}>0 and _ct()-${t1}>0.1 then ${flag}=true end end`);
     for (let si = allChecks.length - 1; si > 0; si--) {
         const sj = Math.floor(rng() * (si + 1));
         [allChecks[si], allChecks[sj]] = [allChecks[sj], allChecks[si]];
@@ -2328,12 +2394,16 @@ function minify(code) {
     code = code.replace(/ {2,}/g, " ");
     return code.trim();
 }
-function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorStep = 0, codeXorKey = 0, codeHash = 0, lazyBaseKey = 0, lazyKeyPrime = 0, ctxInit = 0, ctxPrime = 0, jumpKeyVal = 0, protoKeys = { pK: "K", pC: "C", pP: "P", pU: "U", pN: "nParams" }, cipherSeeds, doMutation = false, doPooling = false, poolsVarName = "") {
+function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorStep = 0, codeXorKey = 0, codeHash = 0, lazyBaseKey = 0, lazyKeyPrime = 0, ctxInit = 0, ctxPrime = 0, jumpKeyVal = 0, protoKeys = { pK: "K", pC: "C", pP: "P", pU: "U", pN: "nParams" }, cipherSeeds, doMutation = false, doPooling = false, poolsVarName = "", isTrace = false, traceId = 0, traceCount = 1, traceStart = 0, traceEnd = 0) {
     const doLazyDecode = lazyBaseKey !== 0;
     const doStringPools = poolsVarName !== "";
     const doContextOps = ctxInit !== 0;
     const doJumpEnc = jumpKeyVal !== 0;
     const doMultiLayer = !!cipherSeeds;
+    const isTraceMode = isTrace === true;
+    const traceEntryPCName = isTraceMode ? randomName(3) : "";
+    const traceStateName = isTraceMode ? randomName(3) : "";
+    const traceFuncName = isTraceMode ? `${n.run}_tr${traceId}` : "";
     const handlers = buildHandlerTemplates(n, doJumpEnc, protoKeys);
     const lines = [];
     if (doStringPools) {
@@ -2348,7 +2418,12 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`local ${poolLoc}={}`);
         lines.push(`local ${poolCb}={}`);
     }
-    lines.push(`local function ${n.run}(${n.K},${n.code},${n.env},${n.protos},${n.initLocals},${n.upvalues},${n.varargs})`);
+    if (isTraceMode) {
+        lines.push(`local function ${traceFuncName}(${n.K},${n.code},${n.env},${n.protos},${n.initLocals},${n.upvalues},${n.varargs},${traceEntryPCName},${traceStateName})`);
+    }
+    else {
+        lines.push(`local function ${n.run}(${n.K},${n.code},${n.env},${n.protos},${n.initLocals},${n.upvalues},${n.varargs})`);
+    }
     lines.push(`${n.protos}=${n.protos} or {}`);
     lines.push(`${n.upvalues}=${n.upvalues} or {}`);
     lines.push(`${n.varargs}=${n.varargs} or {}`);
@@ -2453,7 +2528,23 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`if not ${n.initLocals} then do local ${hv}=0;for _i=1,#${n.code} do local _v=${n.code}[_i];if _v<0 then _v=_v+0x100000000 end;${hv}=bit32.bxor(${hv},_v);${hv}=bit32.lrotate(${hv},7) end`);
         lines.push(`if ${hv}~=${codeHash} then for _k in pairs(${n.handlers}) do ${n.handlers}[_k]=nil end end end end`);
     }
-    if (doPooling) {
+    if (isTraceMode) {
+        lines.push(`local ${n.stack}=${traceStateName}[1]`);
+        lines.push(`local ${n.locals}=${traceStateName}[2]`);
+        lines.push(`local ${n.callBases}=${traceStateName}[3]`);
+        lines.push(`local ${n.stackTop}=${traceStateName}[4]`);
+        lines.push(`local ${n.localBoxes}=${traceStateName}[5]`);
+        lines.push(`local ${n.callBaseTop}=${traceStateName}[6]`);
+        lines.push(`local ${n.doReturn}=${traceStateName}[7]`);
+        lines.push(`local ${n.retFromStack}=${traceStateName}[8]`);
+        lines.push(`local ${n.retBase}=${traceStateName}[9]`);
+        lines.push(`local ${n.retTop}=${traceStateName}[10]`);
+        lines.push(`local ${n.retN}=${traceStateName}[11]`);
+        lines.push(`local ${n.retPack}=${traceStateName}[12]`);
+        lines.push(`local ${n.ctxBit}=${traceStateName}[13]`);
+        lines.push(`local ${n.ip}=${traceEntryPCName}`);
+    }
+    else if (doPooling) {
         lines.push(`local ${n.stack}=table.remove(${poolStk}) or (table.create and table.create(64,nil) or {})`);
         lines.push(`local ${n.locals}=table.remove(${poolLoc}) or (table.create and table.create(32,nil) or {})`);
         lines.push(`local ${n.callBases}=table.remove(${poolCb}) or (table.create and table.create(8,nil) or {})`);
@@ -2463,17 +2554,19 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`local ${n.locals}={}`);
         lines.push(`local ${n.callBases}={}`);
     }
-    lines.push(`local ${n.stackTop}=0`);
-    lines.push(`local ${n.localBoxes}={}`);
-    lines.push(`local ${n.ip}=1`);
-    lines.push(`local ${n.callBaseTop}=0`);
-    lines.push(`local ${n.doReturn}=false`);
-    lines.push(`local ${n.retFromStack}=false`);
-    lines.push(`local ${n.retBase}=0`);
-    lines.push(`local ${n.retTop}=0`);
-    lines.push(`local ${n.retN}=0`);
-    lines.push(`local ${n.retPack}=nil`);
-    lines.push(`local ${n.ctxBit}=0`);
+    if (!isTraceMode) {
+        lines.push(`local ${n.stackTop}=0`);
+        lines.push(`local ${n.localBoxes}={}`);
+        lines.push(`local ${n.ip}=1`);
+        lines.push(`local ${n.callBaseTop}=0`);
+        lines.push(`local ${n.doReturn}=false`);
+        lines.push(`local ${n.retFromStack}=false`);
+        lines.push(`local ${n.retBase}=0`);
+        lines.push(`local ${n.retTop}=0`);
+        lines.push(`local ${n.retN}=0`);
+        lines.push(`local ${n.retPack}=nil`);
+        lines.push(`local ${n.ctxBit}=0`);
+    }
     if (doJumpEnc) {
         lines.push(`local ${n.jumpKey}=${toHexInt(jumpKeyVal)}`);
     }
@@ -2655,10 +2748,9 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`end end`);
         const tWork = 200 + Math.floor(rng() * 600);
         const tV = randomName(2);
-        lines.push(`do local ${tV}=(type(tick)=="function" and tick()) or 0`);
+        lines.push(`do local _ct=_G.os and _G.os.clock or function() return 0 end;local ${tV}=_ct()`);
         lines.push(`local _s=0;for _i=1,${tWork} do _s=bit32.bxor(_s,_i) end`);
-        lines.push(`local _t2=(type(tick)=="function" and tick()) or 0`);
-        lines.push(`if ${tV}>0 and _t2-${tV}>0.05 then ${detFlag}=${detFlag}+1 end end`);
+        lines.push(`if ${tV}>0 and _ct()-${tV}>0.05 then ${detFlag}=${detFlag}+1 end end`);
         lines.push(`if ${detFlag}>1 then for _hk,_ in pairs(${n.handlers}) do ${n.handlers}[_hk]=function() end end end`);
     }
     else {
@@ -2700,6 +2792,11 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`local ${ipMask}=${toHexInt(ipMaskInit)}`);
         lines.push(`local ${origVar}={}`);
         lines.push(`for _k,_v in pairs(${n.handlers}) do ${origVar}[_k]=_v end`);
+        const swapOpI = randomName(4);
+        const siVar = randomName(2);
+        const soVar = randomName(2);
+        lines.push(`local ${swapOpI}={}`);
+        lines.push(`for ${siVar}=1,#${n.code} do local ${soVar}=${n.code}[${siVar}];if not ${swapOpI}[${soVar}] then ${swapOpI}[${soVar}]={} end;${swapOpI}[${soVar}][#${swapOpI}[${soVar}]+1]=${siVar} end`);
         if (handlerXorKey) {
             const ahFlag = randomName(2);
             lines.push(`local ${ahFlag}=0`);
@@ -2711,7 +2808,12 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`${n.ip}=bit32.bxor(${n.ip},${ipMask})`);
         lines.push(`while true do`);
         lines.push(`${n.ip}=bit32.bxor(${n.ip},${ipMask})`);
-        lines.push(`if ${n.doReturn} or ${n.ip}>#${n.code} then break end`);
+        if (isTraceMode) {
+            lines.push(`if ${n.doReturn} or ${n.ip}>=${traceEnd} then break end`);
+        }
+        else {
+            lines.push(`if ${n.doReturn} or ${n.ip}>#${n.code} then break end`);
+        }
         if (doContextOps) {
             lines.push(`${n.ctxBit}=bit32.band(bit32.rshift(bit32.bxor(${toHexInt(ctxInit)},${n.ip}*${toHexInt(ctxPrime)}),16),1)`);
         }
@@ -2753,18 +2855,78 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`if bit32.band(${stateAcc},0xFFFFFFFF)==${toHexInt(decoyVal)} then ${n.ip}=1;${stateAcc}=0 end`);
         lines.push(`${cycleVar}=${cycleVar}+1`);
         lines.push(`if bit32.band(${cycleVar},${toHexInt(switchMask)})==${switchThresh} then ${dispMode}=1-${dispMode} end`);
+        const metaMasks = [0x3FF, 0x7FF, 0xFFF];
+        const metaMask = metaMasks[Math.floor(rng() * metaMasks.length)];
+        const metaSkip = randomName(3);
+        const metaMi = randomName(2);
+        const metaOh = randomName(3);
+        const metaS = randomName(2);
+        const metaTmp = randomName(2);
+        const metaNz = randomName(2);
+        const metaCt = randomName(2);
+        const metaLv = randomName(2);
+        lines.push(`if bit32.band(${cycleVar},${toHexInt(metaMask)})==0 then`);
+        lines.push(`local ${metaMi}=bit32.band(${cycleVar},0x3F)`);
         lines.push(handlerXorKey
-            ? `if bit32.band(${cycleVar},0xFFF)==0 then local _mi=bit32.band(${cycleVar},0x3F);local _xmi=bit32.bxor(_mi,${hxk});local _oh=${origVar}[_xmi];if _oh then ${n.handlers}[_xmi]=function() _oh() end;${n.handlers}[_xmi+128]=${n.handlers}[_xmi] end end`
-            : `if bit32.band(${cycleVar},0xFFF)==0 then local _mi=bit32.band(${cycleVar},0x3F);local _oh=${origVar}[_mi];if _oh then ${n.handlers}[_mi]=function() _oh() end;${n.handlers}[_mi+128]=${n.handlers}[_mi] end end`);
+            ? `local ${metaOh}=${origVar}[bit32.bxor(${metaMi},${hxk})]`
+            : `local ${metaOh}=${origVar}[${metaMi}]`);
+        lines.push(`if ${metaOh} then`);
+        lines.push(`local ${metaS}=bit32.band(${metaMi},3)`);
+        lines.push(`if ${metaS}==0 then`);
+        lines.push(handlerXorKey
+            ? `${n.handlers}[bit32.bxor(${metaMi},${hxk})]=function() ${metaOh}() end;${n.handlers}[bit32.bxor(${metaMi}+128,${hxk})]=${n.handlers}[bit32.bxor(${metaMi},${hxk})]`
+            : `${n.handlers}[${metaMi}]=function() ${metaOh}() end;${n.handlers}[${metaMi}+128]=${n.handlers}[${metaMi}]`);
+        lines.push(`elseif ${metaS}==1 then`);
+        lines.push(`local ${metaTmp}=bit32.bxor(${n.ip},${stateAcc})`);
+        lines.push(`local ${metaNz}=bit32.band(${metaTmp},0xFF)`);
+        lines.push(`local ${metaLv}=${n.stackTop}`);
+        lines.push(handlerXorKey
+            ? `${n.handlers}[bit32.bxor(${metaMi},${hxk})]=function() local _=${metaNz};if type(${metaTmp})=="number" then ${metaOh}() else ${metaOh}() end end;${n.handlers}[bit32.bxor(${metaMi}+128,${hxk})]=${n.handlers}[bit32.bxor(${metaMi},${hxk})]`
+            : `${n.handlers}[${metaMi}]=function() local _=${metaNz};if type(${metaTmp})=="number" then ${metaOh}() else ${metaOh}() end end;${n.handlers}[${metaMi}+128]=${n.handlers}[${metaMi}]`);
+        lines.push(`elseif ${metaS}==2 then`);
+        lines.push(`local ${metaCt}={}`);
+        lines.push(`for _=${metaLv}=1,3 do ${metaCt}[${metaLv}]=bit32.band(${n.ip},${metaLv}) end`);
+        lines.push(handlerXorKey
+            ? `${n.handlers}[bit32.bxor(${metaMi},${hxk})]=function() ${metaOh}();${metaCt}[1]=nil end;${n.handlers}[bit32.bxor(${metaMi}+128,${hxk})]=${n.handlers}[bit32.bxor(${metaMi},${hxk})]`
+            : `${n.handlers}[${metaMi}]=function() ${metaOh}();${metaCt}[1]=nil end;${n.handlers}[${metaMi}+128]=${n.handlers}[${metaMi}]`);
+        lines.push(`else`);
+        lines.push(handlerXorKey
+            ? `local ${metaSkip}=bit32.band(${n.ip},1);if ${metaSkip}==0 then ${n.handlers}[bit32.bxor(${metaMi},${hxk})]=function() pcall(function() ${metaOh}() end) end else ${n.handlers}[bit32.bxor(${metaMi},${hxk})]=function() ${metaOh}() end end;${n.handlers}[bit32.bxor(${metaMi}+128,${hxk})]=${n.handlers}[bit32.bxor(${metaMi},${hxk})]`
+            : `local ${metaSkip}=bit32.band(${n.ip},1);if ${metaSkip}==0 then ${n.handlers}[${metaMi}]=function() pcall(function() ${metaOh}() end) end else ${n.handlers}[${metaMi}]=function() ${metaOh}() end end;${n.handlers}[${metaMi}+128]=${n.handlers}[${metaMi}]`);
+        lines.push(`end`);
+        lines.push(`end`);
+        lines.push(`end`);
+        const swapMask = [0x7FF, 0xFFF, 0x1FFF][Math.floor(rng() * 3)];
+        const swapA = randomName(2);
+        const swapB = randomName(2);
+        const swapAh = randomName(3);
+        const swapBh = randomName(3);
+        const swapAp = randomName(3);
+        const swapBp = randomName(3);
+        lines.push(`if bit32.band(${cycleVar},${toHexInt(swapMask)})==0 then`);
+        lines.push(`local ${swapA}=bit32.band(${cycleVar},0x3F)`);
+        lines.push(`local ${swapB}=bit32.bxor(${swapA},1)`);
+        lines.push(handlerXorKey
+            ? `local ${swapAh}=${n.handlers}[bit32.bxor(${swapA},${hxk})];local ${swapBh}=${n.handlers}[bit32.bxor(${swapB},${hxk})]`
+            : `local ${swapAh}=${n.handlers}[${swapA}];local ${swapBh}=${n.handlers}[${swapB}]`);
+        lines.push(handlerXorKey
+            ? `if ${swapAh} and ${swapBh} and ${swapAh}~=${swapBh} then ${n.handlers}[bit32.bxor(${swapA},${hxk})],${n.handlers}[bit32.bxor(${swapB},${hxk})]=${swapBh},${swapAh};${n.handlers}[bit32.bxor(${swapA}+128,${hxk})]=${n.handlers}[bit32.bxor(${swapA},${hxk})];${n.handlers}[bit32.bxor(${swapB}+128,${hxk})]=${n.handlers}[bit32.bxor(${swapB},${hxk})]`
+            : `if ${swapAh} and ${swapBh} and ${swapAh}~=${swapBh} then ${n.handlers}[${swapA}],${n.handlers}[${swapB}]=${swapBh},${swapAh};${n.handlers}[${swapA}+128]=${n.handlers}[${swapA}];${n.handlers}[${swapB}+128]=${n.handlers}[${swapB}]`);
+        lines.push(`local ${swapAp}=${swapOpI}[${swapA}];local ${swapBp}=${swapOpI}[${swapB}]`);
+        lines.push(`if ${swapAp} and ${swapBp} then`);
+        lines.push(`for _=1,#${swapAp} do ${n.code}[${swapAp}[_]]=${swapB} end`);
+        lines.push(`for _=1,#${swapBp} do ${n.code}[${swapBp}[_]]=${swapA} end`);
+        lines.push(`${swapOpI}[${swapA}],${swapOpI}[${swapB}]=${swapBp},${swapAp}`);
+        lines.push(`end`);
+        lines.push(`end`);
         const ahMask = [0x1FFF, 0x3FFF, 0x0FFF][Math.floor(rng() * 3)];
         lines.push(`if bit32.band(${cycleVar},${toHexInt(ahMask)})==0 and ${cycleVar}>0 then`);
         lines.push(`for _sk,_sv in pairs(${sigTable}) do if tostring(_sk)~=_sv then ${detFlag}=${detFlag}+1 end end`);
         const rtV = randomName(2);
         const rtWork = 100 + Math.floor(rng() * 200);
-        lines.push(`do local ${rtV}=(type(tick)=="function" and tick()) or 0`);
+        lines.push(`do local _ct=_G.os and _G.os.clock or function() return 0 end;local ${rtV}=_ct()`);
         lines.push(`local _s=0;for _i=1,${rtWork} do _s=bit32.bxor(_s,_i) end`);
-        lines.push(`local _t2=(type(tick)=="function" and tick()) or 0`);
-        lines.push(`if ${rtV}>0 and _t2-${rtV}>0.05 then ${detFlag}=${detFlag}+1 end end`);
+        lines.push(`if ${rtV}>0 and _ct()-${rtV}>0.05 then ${detFlag}=${detFlag}+1 end end`);
         lines.push(`end`);
         lines.push(`if ${detFlag}>1 then ${punishDelay}=${punishDelay}+1 end`);
         const punishThresh = 100 + Math.floor(rng() * 400);
@@ -2792,7 +2954,12 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
     }
     else {
         lines.push(`while true do`);
-        lines.push(`if ${n.doReturn} or ${n.ip}>#${n.code} then break end`);
+        if (isTraceMode) {
+            lines.push(`if ${n.doReturn} or ${n.ip}>=${traceEnd} then break end`);
+        }
+        else {
+            lines.push(`if ${n.doReturn} or ${n.ip}>#${n.code} then break end`);
+        }
         lines.push(`local op=${n.code}[${n.ip}]`);
         lines.push(`${n.ip}=${n.ip}+1`);
         lines.push(`local h=${n.handlers}[op]`);
@@ -2807,7 +2974,20 @@ function buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey = 0, xorS
         lines.push(`for _zi=1,#${n.protos} do ${n.protos}[_zi]=nil end`);
         lines.push(`end`);
     }
-    if (doPooling) {
+    if (isTraceMode) {
+        const nextId = traceId < traceCount - 1 ? traceId + 1 : -1;
+        lines.push(`${traceStateName}[4]=${n.stackTop}`);
+        lines.push(`${traceStateName}[6]=${n.callBaseTop}`);
+        lines.push(`${traceStateName}[7]=${n.doReturn}`);
+        lines.push(`${traceStateName}[8]=${n.retFromStack}`);
+        lines.push(`${traceStateName}[9]=${n.retBase}`);
+        lines.push(`${traceStateName}[10]=${n.retTop}`);
+        lines.push(`${traceStateName}[11]=${n.retN}`);
+        lines.push(`${traceStateName}[12]=${n.retPack}`);
+        lines.push(`${traceStateName}[13]=${n.ctxBit}`);
+        lines.push(`return ${nextId}, ${n.ip}, ${traceStateName}`);
+    }
+    else if (doPooling) {
         const rvVar = randomName(3);
         lines.push(`local ${rvVar}=nil`);
         lines.push(`if ${n.doReturn} then`);
@@ -2959,9 +3139,107 @@ export function generateVM(chunk, options = {}) {
     const seed = options.polymorphicSeed || (Date.now() ^ (Math.random() * 0xFFFFFFFF));
     seedRandom(seed);
     if (nesting > 0 && !options.forceSingleVM) {
+        const vmId = options.vmId ?? "nested";
+        if (nesting >= 2) {
+            const innerSeed = (seed * 2654435761) >>> 0;
+            const middleSeed = (seed * 2246822519) >>> 0;
+            const outerSeed = (seed * 3333341113) >>> 0;
+            const t0 = Date.now();
+            console.log(`[telemetry:${vmId}] Generating inner VM (seed=${innerSeed})...`);
+            const safeInnerFeatures = [
+                "superOperators", "constantFolding", "stringFragment",
+            ];
+            const innerForced = [];
+            for (const f of safeInnerFeatures) {
+                if (rng() > 0.4)
+                    innerForced.push(f);
+            }
+            const innerVM = generateVM(chunk, {
+                level: "normal",
+                nesting: 0,
+                vmId: "inner:1",
+                polymorphicSeed: innerSeed,
+                executorGlobals: true,
+                _noWatermark: true,
+                disableFeatures: [
+                    "fakeHandlers", "opaquePredicates", "cff",
+                    "handlerMutation", "handlerNoise", "antiDebug",
+                    "antiTamper", "lazyDecode", "nopCamouflage", "minification", "contextOpcodes", "nonLinearJumps",
+                    "antiHookDeep", "antiDump", "sandboxDetect", "cfi", "runtimeMonitor",
+                    "stringMutation", "adaptiveFragments", "stackPooling",
+                ],
+                forceFeatures: innerForced,
+            });
+            const t1 = Date.now();
+            console.log(`[telemetry:inner:1] inner_vm_size: ${innerVM.length} chars (${t1 - t0}ms)`);
+            try {
+                console.log(`[telemetry:${vmId}] Compiling inner VM to bytecode...`);
+                const innerChunk = compileString(innerVM);
+                const t2 = Date.now();
+                console.log(`[telemetry:inner:1] inner_compile: ${t2 - t1}ms, ${innerChunk.code.length} instructions, ${innerChunk.K.length} constants, ${(innerChunk.protos || []).length} protos`);
+                console.log(`[telemetry:${vmId}] Generating middle VM (seed=${middleSeed})...`);
+                const middleForced = [
+                    "superOperators", "constantFolding", "stringFragment",
+                    "nopCamouflage", "lazyDecode", "contextOpcodes", "nonLinearJumps",
+                    "minification",
+                ];
+                const middleVM = generateVM(innerChunk, {
+                    level: "normal",
+                    nesting: 0,
+                    vmId: "middle:2",
+                    polymorphicSeed: middleSeed,
+                    executorGlobals: true,
+                    _noWatermark: true,
+                    disableFeatures: [
+                        "fakeHandlers", "opaquePredicates", "cff",
+                        "handlerMutation", "handlerNoise", "antiDebug",
+                        "antiTamper",
+                        "antiHookDeep", "antiDump", "sandboxDetect", "cfi", "runtimeMonitor",
+                        "stringMutation", "adaptiveFragments", "stackPooling",
+                    ],
+                    forceFeatures: middleForced,
+                });
+                const t3 = Date.now();
+                console.log(`[telemetry:middle:2] middle_vm_size: ${middleVM.length} chars (${t3 - t2}ms)`);
+                console.log(`[telemetry:${vmId}] Compiling middle VM to bytecode...`);
+                const middleChunk = compileString(middleVM);
+                const t4 = Date.now();
+                console.log(`[telemetry:middle:2] middle_compile: ${t4 - t3}ms, ${middleChunk.code.length} instructions, ${middleChunk.K.length} constants, ${(middleChunk.protos || []).length} protos`);
+                console.log(`[telemetry:${vmId}] Generating outer VM (seed=${outerSeed})...`);
+                const outerVM = generateVM(middleChunk, {
+                    level: "max",
+                    nesting: 0,
+                    vmId: "outer:3",
+                    polymorphicSeed: outerSeed,
+                    executorGlobals: true,
+                });
+                const t5 = Date.now();
+                console.log(`[telemetry:outer:3] outer_vm_size: ${outerVM.length} chars (${t5 - t4}ms)`);
+                console.log(`[telemetry:${vmId}] Total triple-nested VM: ${outerVM.length} chars (${t5 - t0}ms)`);
+                if (outerVM.length > 1200000) {
+                    console.warn(`[telemetry:${vmId}] WARNING: output > 1.2MB (${outerVM.length})`);
+                }
+                console.log(`[telemetry:${vmId}] compile_errors: 0, fallback_used: false`);
+                return outerVM;
+            }
+            catch (e) {
+                console.error(`[telemetry:${vmId}] Compilation failed at triple-nest: ${e.message}`);
+                if (options.forceNestedVM) {
+                    throw new Error(`[VM-in-VM] Triple-nest compilation failed and forceNestedVM is set: ${e.message}`);
+                }
+                console.warn(`[telemetry:${vmId}] Falling back to 2-layer nested VM...`);
+                const fallbackSeed = (seed * 2246822519) >>> 0;
+                seedRandom(fallbackSeed);
+                return generateVM(chunk, {
+                    nesting: 1,
+                    vmId: "fallback-2layer",
+                    polymorphicSeed: fallbackSeed,
+                    executorGlobals: options.executorGlobals,
+                });
+            }
+        }
         const innerSeed = (seed * 2654435761) >>> 0;
         const outerSeed = (seed * 2246822519) >>> 0;
-        const vmId = options.vmId ?? "nested";
         console.log(`[telemetry:${vmId}] Generating inner VM (seed=${innerSeed})...`);
         const t0 = Date.now();
         const safeInnerFeatures = [
@@ -3083,7 +3361,7 @@ export function generateVM(chunk, options = {}) {
     const doPooling = featureEnabled(options, "stackPooling", level === "max");
     const doStringPools = level === "max" && doLazyDecode;
     const poolsVarName = doStringPools ? randomName(3) : "";
-    const vmFunction = buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey, xorStep, effectiveCodeXorKey, codeHash, lazyBaseKey, lazyKeyPrime, ctxInit, ctxPrime, jumpKey, protoKeys, cipherSeeds, doMutation, doPooling, poolsVarName);
+    const doSplitTraces = (options.splitTraces ?? (level === "max")) && level === "max";
     const honeypotPool = [
         "RemoteEvent", "FireServer", "InvokeServer", "OnServerEvent", "OnClientEvent",
         "HttpService", "GetAsync", "PostAsync", "JSONDecode", "JSONEncode",
@@ -3102,6 +3380,13 @@ export function generateVM(chunk, options = {}) {
         "pcall", "xpcall", "rawget", "rawset", "setmetatable", "getmetatable",
         "string", "table", "math", "bit32", "utf8", "os", "debug",
         "loadstring", "getfenv", "setfenv", "newproxy",
+        "LoadLibrary", "getscriptbytecode", "decryptbytecode", "execute", "Crypt", "HttpSpy",
+        "backdoor", "admin", "sudo", "root", "inject", "bypass", "exploit",
+        "https://discord.com/api/webhooks", "webhook", "token", "secret",
+        "SendNotification", "TeleportService", "DataStore", "MarketplaceService",
+        "Detected", "Kicked", "Banned", "Flagged", "Moderated", "cheat", "hack",
+        "deobfuscate", "devirtualize", "unpacker", "bytecode_dump", "vm_detected",
+        "hwid", "license", "auth", "key", "payload", "shellcode", "callback",
     ];
     let extendedK = chunk.K;
     if (level === "max" && doLazyDecode) {
@@ -3135,47 +3420,175 @@ export function generateVM(chunk, options = {}) {
         console.log(`[§69] String pools: ${pools.length} pools, ${pools.reduce((a, p) => a + p.length, 0)} total bytes`);
     }
     const dataK = serializeConstants(finalK, encodeStrings, xorKey, doLazyDecode ? false : doFragment, xorStep, doConstantFold, lazyBaseKey, lazyKeyPrime, doMutation);
-    const dataP = serializeProtos(chunk.protos, opcodeEncode, encodeStrings, doShuffle, xorKey, doLazyDecode ? false : doFragment, xorStep, effectiveCodeXorKey, doConstantFold, lazyBaseKey, lazyKeyPrime, level === "max", protoKeys, cipherSeeds, doMutation);
     const dK = randomName(3);
-    const dC = randomName(3);
     const dP = randomName(3);
     const parts = [];
     parts.push(envSetup);
-    parts.push(vmFunction);
-    if (doStringPools && poolsSerialized) {
-        parts.push(`${poolsVarName}=${poolsSerialized}`);
-    }
-    if (doMultiLayer && cipherSeeds) {
-        const dataC = packCodeToTable(mappedCode, cipherSeeds[0], cipherSeeds[1], cipherSeeds[2]);
+    if (doSplitTraces) {
+        // ── Split-trace VM path ──────────────────────────────────────────
+        const numTraces = chunk.code.length < 200 ? 2 : 3;
+        const traceSplits = computeTraceSplits(chunk.code, numTraces);
+        // generate per-trace opcode shuffles and code arrays
+        const traceData = [];
+        for (let t = 0; t < traceSplits.length; t++) {
+            const { encode: trEncode, decode: trDecode } = shuffleOpcodes(true);
+            const trCode = doShuffle ? mapBytecode(chunk.code, trEncode) : chunk.code;
+            const trN = createNames(level);
+            const trCodeXor = codeXorKey ? (1 + Math.floor(rng() * 254)) : 0;
+            const trCodeVar = randomName(4);
+            // compute trace-specific code hash for anti-tamper (opaque predicate)
+            const trCodeHash = featureEnabled(options, "antiTamper", level === "max") ? computeCodeHash(trCode) : 0;
+            const trFunc = buildVMFunction(trN, trEncode, level, encodeStrings, xorKey, xorStep, trCodeXor, trCodeHash, lazyBaseKey, lazyKeyPrime, ctxInit, ctxPrime, jumpKey, protoKeys, cipherSeeds, doMutation, doPooling, poolsVarName, true, t, traceSplits.length, traceSplits[t].start + 1, traceSplits[t].end + 1);
+            traceData.push({
+                encode: trEncode,
+                decode: trDecode,
+                code: trCode,
+                n: trN,
+                funcName: trN.run + `_tr${t}`,
+                start: traceSplits[t].start,
+                end: traceSplits[t].end,
+                codeXor: trCodeXor,
+                codeVar: trCodeVar,
+            });
+            parts.push(trFunc);
+        }
+        // serialize protos using first trace's opcode encoding
+        const dataP = serializeProtos(chunk.protos, traceData[0].encode, encodeStrings, doShuffle, xorKey, doLazyDecode ? false : doFragment, xorStep, 0, doConstantFold, lazyBaseKey, lazyKeyPrime, level === "max", protoKeys, cipherSeeds, doMutation);
+        // build per-trace code serializations
+        if (doStringPools && poolsSerialized) {
+            parts.push(`${poolsVarName}=${poolsSerialized}`);
+        }
+        const stateVar = randomName(4);
+        const nextTraceVar = randomName(4);
+        const entryPCVar = randomName(4);
+        const swVar = randomName(3);
+        const epSave = randomName(3);
+        // code data declarations (shuffled order)
+        const codeDecls = [];
+        for (const td of traceData) {
+            const codeData = serializeCode(td.code, td.codeXor);
+            codeDecls.push(`local ${td.codeVar}=${codeData}`);
+        }
+        for (let di = codeDecls.length - 1; di > 0; di--) {
+            const dj = Math.floor(rng() * (di + 1));
+            [codeDecls[di], codeDecls[dj]] = [codeDecls[dj], codeDecls[di]];
+        }
+        for (const d of codeDecls)
+            parts.push(d);
+        // K and P declarations
         const dataDecls = [
             `local ${dK}=${dataK}`,
-            `local ${dC}=${dataC}`,
             `local ${dP}=${dataP}`,
         ];
-        const declOrder = [0, 1, 2];
-        for (let di = declOrder.length - 1; di > 0; di--) {
+        for (let di = dataDecls.length - 1; di > 0; di--) {
             const dj = Math.floor(rng() * (di + 1));
-            [declOrder[di], declOrder[dj]] = [declOrder[dj], declOrder[di]];
+            [dataDecls[di], dataDecls[dj]] = [dataDecls[dj], dataDecls[di]];
         }
-        for (const idx of declOrder)
-            parts.push(dataDecls[idx]);
+        for (const d of dataDecls)
+            parts.push(d);
+        // ── generate trace hash table for opaque predicate integrity check ──
+        const hashTableVar = randomName(4);
+        const hashParts = [];
+        for (let t = 0; t < traceData.length; t++) {
+            const trHash = computeCodeHash(traceData[t].code);
+            hashParts.push(`[${t}]=${toHexInt(trHash)}`);
+        }
+        parts.push(`local ${hashTableVar}={${hashParts.join(",")}}`);
+        // ── dispatcher ──
+        const dispName = randomName(5);
+        const dispLines = [];
+        dispLines.push(`local function ${dispName}(${n.env})`);
+        // state: {stack, locals, callBases, stackTop, localBoxes, callBaseTop, doReturn, retFromStack, retBase, retTop, retN, retPack, ctxBit}
+        dispLines.push(`local ${stateVar}={ {},{},{},0,{},0,false,false,0,0,0,nil,0 }`);
+        dispLines.push(`local ${nextTraceVar}=0`);
+        dispLines.push(`local ${entryPCVar}=1`);
+        dispLines.push(`while ${nextTraceVar}>=0 do`);
+        // opaque predicate: verify trace code integrity at each handoff
+        const hv = randomName(3);
+        const ti = randomName(2);
+        const tx = randomName(2);
+        dispLines.push(`local ${hv}=0;for ${ti}=1,#${traceData[0].codeVar} do local ${tx}=${traceData[0].codeVar}[${ti}];if ${tx}<0 then ${tx}=${tx}+0x100000000 end;${hv}=bit32.bxor(${hv},${tx});${hv}=bit32.lrotate(${hv},7) end`);
+        dispLines.push(`if ${hv}~=${hashTableVar}[0] then`);
+        for (const td of traceData) {
+            dispLines.push(`for _i=1,#${td.codeVar} do ${td.codeVar}[_i]=0 end`);
+        }
+        dispLines.push(`end`);
+        // main dispatch switch
+        dispLines.push(`if ${nextTraceVar}==0 then`);
+        const retVars = `${nextTraceVar},${epSave},${stateVar}`;
+        dispLines.push(`${retVars}=${traceData[0].funcName}(${dK},${traceData[0].codeVar},${n.env},${dP},nil,{},{},${entryPCVar},${stateVar})`);
+        for (let t = 1; t < traceData.length; t++) {
+            dispLines.push(`elseif ${nextTraceVar}==${t} then`);
+            dispLines.push(`${retVars}=${traceData[t].funcName}(${dK},${traceData[t].codeVar},${n.env},${dP},nil,{},{},${entryPCVar},${stateVar})`);
+        }
+        dispLines.push(`else break end`);
+        dispLines.push(`${entryPCVar}=${epSave}`);
+        dispLines.push(`end`);
+        // handle return values from final state
+        dispLines.push(`local s${swVar}=${stateVar}[2]`);
+        dispLines.push(`local st${swVar}=${stateVar}[4]`);
+        dispLines.push(`local cb${swVar}=${stateVar}[6]`);
+        dispLines.push(`local dr${swVar}=${stateVar}[7]`);
+        dispLines.push(`local rs${swVar}=${stateVar}[8]`);
+        dispLines.push(`local rb${swVar}=${stateVar}[9]`);
+        dispLines.push(`local rt${swVar}=${stateVar}[10]`);
+        dispLines.push(`local rn${swVar}=${stateVar}[11]`);
+        dispLines.push(`local rp${swVar}=${stateVar}[12]`);
+        dispLines.push(`if dr${swVar} then`);
+        dispLines.push(`if rp${swVar} then return table.unpack(rp${swVar},1,rp${swVar}.n or #rp${swVar}) end`);
+        dispLines.push(`if rs${swVar} then`);
+        dispLines.push(`if rn${swVar}==0 then return end`);
+        dispLines.push(`return table.unpack(s${swVar},rb${swVar}+1,rt${swVar})`);
+        dispLines.push(`end`);
+        dispLines.push(`return`);
+        dispLines.push(`end`);
+        dispLines.push(`return nil`);
+        dispLines.push(`end`);
+        parts.push(dispLines.join("\n"));
+        // main entry: call dispatcher; pass env as the only arg to avoid exposing data tables to outer scope
+        parts.push(`return ${dispName}(${n.env})`);
     }
     else {
-        const dataC = serializeCode(mappedCode, effectiveCodeXorKey);
-        const dataDecls = [
-            `local ${dK}=${dataK}`,
-            `local ${dC}=${dataC}`,
-            `local ${dP}=${dataP}`,
-        ];
-        const declOrder = [0, 1, 2];
-        for (let di = declOrder.length - 1; di > 0; di--) {
-            const dj = Math.floor(rng() * (di + 1));
-            [declOrder[di], declOrder[dj]] = [declOrder[dj], declOrder[di]];
+        // ── Standard (non-trace) VM path ─────────────────────────────────
+        const vmFunction = buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey, xorStep, effectiveCodeXorKey, codeHash, lazyBaseKey, lazyKeyPrime, ctxInit, ctxPrime, jumpKey, protoKeys, cipherSeeds, doMutation, doPooling, poolsVarName);
+        const dataP = serializeProtos(chunk.protos, opcodeEncode, encodeStrings, doShuffle, xorKey, doLazyDecode ? false : doFragment, xorStep, effectiveCodeXorKey, doConstantFold, lazyBaseKey, lazyKeyPrime, level === "max", protoKeys, cipherSeeds, doMutation);
+        const dC = randomName(3);
+        parts.push(vmFunction);
+        if (doStringPools && poolsSerialized) {
+            parts.push(`${poolsVarName}=${poolsSerialized}`);
         }
-        for (const idx of declOrder)
-            parts.push(dataDecls[idx]);
+        if (doMultiLayer && cipherSeeds) {
+            const dataC = packCodeToTable(mappedCode, cipherSeeds[0], cipherSeeds[1], cipherSeeds[2]);
+            const dataDecls = [
+                `local ${dK}=${dataK}`,
+                `local ${dC}=${dataC}`,
+                `local ${dP}=${dataP}`,
+            ];
+            const declOrder = [0, 1, 2];
+            for (let di = declOrder.length - 1; di > 0; di--) {
+                const dj = Math.floor(rng() * (di + 1));
+                [declOrder[di], declOrder[dj]] = [declOrder[dj], declOrder[di]];
+            }
+            for (const idx of declOrder)
+                parts.push(dataDecls[idx]);
+        }
+        else {
+            const dataC = serializeCode(mappedCode, effectiveCodeXorKey);
+            const dataDecls = [
+                `local ${dK}=${dataK}`,
+                `local ${dC}=${dataC}`,
+                `local ${dP}=${dataP}`,
+            ];
+            const declOrder = [0, 1, 2];
+            for (let di = declOrder.length - 1; di > 0; di--) {
+                const dj = Math.floor(rng() * (di + 1));
+                [declOrder[di], declOrder[dj]] = [declOrder[dj], declOrder[di]];
+            }
+            for (const idx of declOrder)
+                parts.push(dataDecls[idx]);
+        }
+        parts.push(`return ${n.run}(${dK},${dC},${n.env},${dP})`);
     }
-    parts.push(`return ${n.run}(${dK},${dC},${n.env},${dP})`);
     let output = parts.join("\n");
     output = output.replace(/;/g, "\n");
     if (doMinify) {
@@ -3200,8 +3613,8 @@ export function generateVM(chunk, options = {}) {
             `     ( ^.^ )         `,
             `      > ^ <          `,
             `                     `,
-            `  luau.uwu           `,
-            `  protected          `,
+            `  uwu.dll              `,
+            `  protected            `,
             `  build ${fpHex}     `,
             `                     `,
         ];

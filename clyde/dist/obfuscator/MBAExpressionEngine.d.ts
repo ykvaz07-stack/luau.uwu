@@ -17,5 +17,11 @@ export declare class MBAEngine {
         expected: boolean;
     };
     createAntiDSEPredicate(loc?: SourceLocation): Expression;
+    createMBAInt(n: number, loc?: SourceLocation): Expression;
+    createVMBasedOpaque(vmProps: {
+        stackTop?: string;
+        ip?: string;
+        code?: string;
+    }, loc?: SourceLocation): Expression;
 }
 //# sourceMappingURL=MBAExpressionEngine.d.ts.map

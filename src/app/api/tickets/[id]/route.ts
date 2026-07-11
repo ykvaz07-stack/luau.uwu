@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isAdminEmail } from "@/lib/admin-check";
 
 async function getAuthUser() {
   const cookieStore = await cookies();
@@ -51,8 +52,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    const isAdmin = adminEmail ? user.email === adminEmail : false;
+    const isAdmin = isAdminEmail(user.email);
 
     if (ticket.user_id !== user.id && !isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

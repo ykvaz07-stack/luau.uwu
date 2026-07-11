@@ -3334,7 +3334,7 @@ export function generateRegVM(chunk, options = {}) {
             xorKey,
             invSbox,
             checksum,
-            chunkName: "Clyde",
+            chunkName: "uwu.dll",
             rng,
         });
         console.log(`[RegVM] Blob: final output = ${output.length} chars`);
