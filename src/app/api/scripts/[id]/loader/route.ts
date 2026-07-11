@@ -117,16 +117,19 @@ local function kick(msg)
   end
 end
 
-local key = script_key or getgenv().script_key
-if type(key) ~= "string" or #key < 5 then
-  kick("[luau.uwu] No valid key found.")
-  return
-end
+local key = script_key or getgenv().script_key or ""
 
 local hwid = getHwid()
-local loadUrl = "${domain}/api/scripts/${id}/load?key=" .. key
+local loadUrl = "${domain}/api/scripts/${id}/load"
+if key and #key > 0 then
+  loadUrl = loadUrl .. "?key=" .. key
+end
 if hwid and #hwid > 0 then
-  loadUrl = loadUrl .. "&hwid=" .. hwid
+  if key and #key > 0 then
+    loadUrl = loadUrl .. "&hwid=" .. hwid
+  else
+    loadUrl = loadUrl .. "?hwid=" .. hwid
+  end
 end
 
 local ok, result = pcall(function()
