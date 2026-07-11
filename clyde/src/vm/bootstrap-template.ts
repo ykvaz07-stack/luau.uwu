@@ -161,7 +161,7 @@ export function generateBootstrap(config: BootstrapConfig): string {
       [nByte, 'string.byte'], [nGsub, 'string.gsub'], [nSub, 'string.sub'],
       [nChar, 'string.char'], [nLoad, '(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="function" and getgenv().load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)'], [nAssert, 'assert'],
       [nType, 'type'], [nBxor, 'bit32.bxor'], [nPcall, 'pcall'],
-      [nTconcat, 'table.concat'], [nBand, 'bit32.band'], [nUnpack, 'table.unpack'],
+      [nTconcat, 'table.concat'], [nBand, 'bit32.band'], [nRshift, 'bit32.rshift'], [nUnpack, 'table.unpack'],
     ];
     shuffle(builtins, rng);
     let bi = 0;
