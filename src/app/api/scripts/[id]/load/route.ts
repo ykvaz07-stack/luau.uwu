@@ -28,10 +28,10 @@ import { createClient } from "@supabase/supabase-js";
     display: flex; align-items: center; justify-content: center;
     border: 1px solid rgba(255,107,157,0.12);
   }
-  .icon svg { width: 36px; height: 36px; fill: none; stroke: #ff6b9d; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .icon svg { width: 36px; height: 36px; fill: none; stroke: #6366f1; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
   h1 {
     font-size: 2rem; font-weight: 800; margin-bottom: 0.75rem;
-    background: linear-gradient(135deg, #ff6b9d, #c44dff, #ff6b9d);
+    background: linear-gradient(135deg, #6366f1, #22d3ee, #6366f1);
     background-size: 200% 200%;
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;

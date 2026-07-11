@@ -21,5 +21,6 @@ export type { Chunk, Statement, Expression } from "./ast/types.js";
 export { compile } from "./vm/Compiler.js";
 export type { BytecodeChunk, Constant } from "./vm/bytecode.js";
 export { generateVM, type VMGenOptions, type VMGenLevel } from "./vm/vm-gen.js";
+export { compilePhantom, generatePhantomVM, runPipelineWithPhantomVM } from "./obfuscator/index.js";
 export { validate, type ValidationResult, type ValidationError } from "./compiler/LuauCompiler.js";
 

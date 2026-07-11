@@ -57,9 +57,9 @@ export async function POST(request: Request) {
             <span style="font-size:20px;">( ^.^ )</span><br>
             <span style="font-size:24px;">> ^ <</span>
           </div>
-          <h1 style="color:#ff6b9d;font-size:20px;text-align:center;">Your verification code</h1>
+          <h1 style="color:#6366f1;font-size:20px;text-align:center;">Your verification code</h1>
           <p style="color:rgba(224,208,224,0.7);text-align:center;">Enter this code to verify your account:</p>
-          <div style="text-align:center;font-size:36px;font-weight:800;letter-spacing:8px;padding:16px;margin:16px 0;background:rgba(255,107,157,0.1);border-radius:8px;color:#ff6b9d;">${code}</div>
+          <div style="text-align:center;font-size:36px;font-weight:800;letter-spacing:8px;padding:16px;margin:16px 0;background:rgba(255,107,157,0.1);border-radius:8px;color:#6366f1;">${code}</div>
           <p style="color:rgba(224,208,224,0.5);font-size:12px;text-align:center;">This code expires in 10 minutes.</p>
           <p style="color:rgba(224,208,224,0.4);font-size:11px;text-align:center;margin-top:16px;">luau.uwu — protected</p>
         </div>`,

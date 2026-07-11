@@ -111,7 +111,7 @@ export function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? "bg-primary/15 text-primary glow-pink-sm"
+                  ? "bg-primary/15 text-primary glow-accent-sm"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               } ${collapsed ? "justify-center" : ""}`}
               title={collapsed ? item.label : undefined}
@@ -126,7 +126,7 @@ export function Sidebar() {
             href="/dashboard/admin"
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
               pathname.startsWith("/dashboard/admin")
-                ? "bg-primary/15 text-primary glow-pink-sm"
+                ? "bg-primary/15 text-primary glow-accent-sm"
                 : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
             } ${collapsed ? "justify-center" : ""}`}
             title={collapsed ? "Admin" : undefined}

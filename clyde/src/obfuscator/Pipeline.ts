@@ -10,6 +10,9 @@ import { scrambleTableFields, type TableFieldScramblerOptions } from "./TableFie
 import { protectWithMetatables, type MetatableProtectorOptions } from "./MetatableProtector.js";
 import { injectAntiDebug, type AntiDebugInjectorOptions } from "./AntiDebugInjector.js";
 import { embedWatermark, type WatermarkEngineOptions } from "./WatermarkEngine.js";
+import { compilePhantom } from "../vm/phantom-compiler.js";
+import { generatePhantomVM } from "../vm/phantom-vm-gen.js";
+import type { PhantomGenOptions } from "../vm/phantom-vm-gen.js";
 
 export type ProtectionLevel = "low" | "medium" | "high" | "max";
 
@@ -25,6 +28,7 @@ export interface PipelineOptions {
   metatableProtection?: MetatableProtectorOptions;
   antiDebug?: AntiDebugInjectorOptions;
   watermark?: WatermarkEngineOptions;
+  phantomVM?: PhantomGenOptions;
   protectionLevel?: ProtectionLevel;
   seed?: number;
 }
@@ -134,4 +138,11 @@ export function runPipeline(ast: Chunk, options: PipelineOptions = {}): Chunk {
   }
 
   return result;
+}
+
+export function runPipelineWithPhantomVM(ast: Chunk, options: PipelineOptions = {}): string {
+  const result = runPipeline(ast, options);
+  const chunk = compilePhantom(result);
+  const vmOptions = options.phantomVM ?? { level: "max", seed: options.seed };
+  return generatePhantomVM(chunk, vmOptions);
 }

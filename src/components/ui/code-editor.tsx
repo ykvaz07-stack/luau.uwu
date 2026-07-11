@@ -7,57 +7,57 @@ import { StreamLanguage, StringStream } from "@codemirror/language";
 
 const luauTheme = EditorView.theme({
   "&": {
-    backgroundColor: "oklch(0.08 0.01 340)",
+    backgroundColor: "oklch(0.08 0.01 250)",
     color: "oklch(0.9 0 0)",
     fontSize: "13px",
     fontFamily: "var(--font-geist-mono), monospace",
   },
   ".cm-content": {
-    caretColor: "#ff6b9d",
+    caretColor: "#6366f1",
     padding: "12px 0",
   },
   ".cm-cursor": {
-    borderLeftColor: "#ff6b9d",
+    borderLeftColor: "#6366f1",
     borderLeftWidth: "2px",
   },
   ".cm-selectionBackground": {
-    backgroundColor: "rgba(255, 107, 157, 0.15) !important",
+    backgroundColor: "rgba(99, 102, 241, 0.15) !important",
   },
   "&.cm-focused .cm-selectionBackground": {
-    backgroundColor: "rgba(255, 107, 157, 0.2) !important",
+    backgroundColor: "rgba(99, 102, 241, 0.2) !important",
   },
   ".cm-gutters": {
-    backgroundColor: "oklch(0.06 0.01 340)",
+    backgroundColor: "oklch(0.06 0.01 250)",
     color: "oklch(0.4 0 0)",
-    borderRight: "1px solid oklch(0.2 0.02 340)",
+    borderRight: "1px solid oklch(0.2 0.02 250)",
   },
   ".cm-activeLineGutter": {
-    backgroundColor: "oklch(0.12 0.015 340)",
+    backgroundColor: "oklch(0.12 0.015 250)",
   },
   ".cm-activeLine": {
-    backgroundColor: "oklch(0.1 0.012 340)",
+    backgroundColor: "oklch(0.1 0.012 250)",
   },
   ".cm-matchingBracket": {
-    backgroundColor: "rgba(255, 107, 157, 0.2)",
-    outline: "1px solid rgba(255, 107, 157, 0.4)",
+    backgroundColor: "rgba(99, 102, 241, 0.2)",
+    outline: "1px solid rgba(99, 102, 241, 0.4)",
   },
   ".cm-foldPlaceholder": {
-    backgroundColor: "oklch(0.15 0.015 340)",
-    color: "oklch(0.7 0.2 340)",
-    border: "1px solid oklch(0.25 0.02 340)",
+    backgroundColor: "oklch(0.15 0.015 250)",
+    color: "oklch(0.7 0.2 250)",
+    border: "1px solid oklch(0.25 0.02 250)",
   },
 }, { dark: true });
 
 const luauHighlighting = EditorView.baseTheme({
-  ".tok-keyword": { color: "#c44dff" },
-  ".tok-string": { color: "#ff6b9d" },
-  ".tok-number": { color: "#ffd700" },
+  ".tok-keyword": { color: "#22d3ee" },
+  ".tok-string": { color: "#6366f1" },
+  ".tok-number": { color: "#fbbf24" },
   ".tok-comment": { color: "oklch(0.45 0 0)", fontStyle: "italic" },
-  ".tok-function": { color: "#7dd3fc" },
+  ".tok-function": { color: "#67e8f9" },
   ".tok-variable": { color: "oklch(0.85 0 0)" },
-  ".tok-operator": { color: "#ff6b9d" },
+  ".tok-operator": { color: "#6366f1" },
   ".tok-punctuation": { color: "oklch(0.6 0 0)" },
-  ".tok-builtin": { color: "#c44dff" },
+  ".tok-builtin": { color: "#22d3ee" },
   ".tok-type": { color: "#7dd3fc" },
   ".tok-constant": { color: "#ffd700" },
   ".tok-property": { color: "oklch(0.85 0 0)" },

@@ -11,4 +11,6 @@ export { protectWithMetatables, type MetatableProtectorOptions } from "./Metatab
 export { injectAntiDebug, type AntiDebugInjectorOptions } from "./AntiDebugInjector.js";
 export { embedWatermark, type WatermarkEngineOptions } from "./WatermarkEngine.js";
 export { MBAEngine, type MBAConfig } from "./MBAExpressionEngine.js";
-export { runPipeline, type PipelineOptions, type ProtectionLevel } from "./Pipeline.js";
+export { runPipeline, runPipelineWithPhantomVM, type PipelineOptions, type ProtectionLevel } from "./Pipeline.js";
+export { compilePhantom } from "../vm/phantom-compiler.js";
+export { generatePhantomVM, type PhantomGenOptions } from "../vm/phantom-vm-gen.js";

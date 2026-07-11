@@ -12,9 +12,17 @@ import {
   Check,
   Shield,
   X,
+  ChevronDown,
+  HelpCircle,
+  Monitor,
+  Download,
+  RefreshCw,
+  Smile,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { MotionDiv, MotionStagger, MotionStaggerItem } from "@/components/motion";
+import { TerminalDemo } from "@/components/demo/terminal-demo";
 
 const features = [
   { icon: Key, title: "Key System", description: "Generate, manage, and validate license keys with HWID locking and expiry support." },
@@ -82,7 +90,35 @@ const pricingPlans = [
   },
 ];
 
+const faqs = [
+  {
+    q: "What is luau.uwu?",
+    a: "luau.uwu is a professional key management, VM obfuscation, and script protection platform built specifically for Roblox developers. We help you secure your Luau scripts and control access with license keys.",
+  },
+  {
+    q: "How does the obfuscation work?",
+    a: "Our VM obfuscation transforms your Luau bytecode into a register-based virtual machine that runs inside a custom VM interpreter. This makes reverse engineering extremely difficult while keeping performance overhead minimal.",
+  },
+  {
+    q: "Can I try it before buying?",
+    a: "Absolutely! We offer a 7-day free trial on the Pro plan with no credit card required. You get access to all Pro features including full VM obfuscation, HWID locking, and API access.",
+  },
+  {
+    q: "How do license keys work?",
+    a: "Generate keys from your dashboard, assign them to users, and validate them server-side through our API. Keys support HWID locking, expiry dates, Discord integration, and can be revoked at any time.",
+  },
+  {
+    q: "Is my script safe on your servers?",
+    a: "Yes. All scripts are stored encrypted at rest, transmitted over TLS, and only accessible to your account. We never share or inspect your code. Obfuscated output is delivered securely via loadstring-ready URLs.",
+  },
+  {
+    q: "Do you offer refunds?",
+    a: "We offer a 7-day money-back guarantee on all paid plans. If you're not satisfied, contact our support team and we'll process your refund promptly.",
+  },
+];
+
 export default function Home() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   return (
     <div className="min-h-screen bg-background overflow-hidden grid-bg">
       {/* Floating gradient orbs */}
@@ -94,13 +130,13 @@ export default function Home() {
           style={{ willChange: "transform" }}
         />
         <motion.div
-          className="absolute bottom-40 right-1/4 w-[350px] h-[350px] rounded-full bg-[#c44dff]/8 blur-[120px]"
+          className="absolute bottom-40 right-1/4 w-[350px] h-[350px] rounded-full bg-[#22d3ee]/8 blur-[120px]"
           animate={{ y: [0, 15, 0], x: [0, -10, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           style={{ willChange: "transform" }}
         />
         <motion.div
-          className="absolute top-1/2 left-1/2 w-[250px] h-[250px] rounded-full bg-[#ff6b9d]/5 blur-[100px]"
+          className="absolute top-1/2 left-1/2 w-[250px] h-[250px] rounded-full bg-[#6366f1]/5 blur-[100px]"
           animate={{ scale: [1, 1.2, 1] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           style={{ willChange: "transform" }}
@@ -160,7 +196,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/signup"
-                className="inline-flex h-12 items-center justify-center rounded-lg gradient-accent px-8 text-sm font-medium text-white hover:opacity-90 transition-opacity gap-2 glow-pink"
+                className="inline-flex h-12 items-center justify-center rounded-lg gradient-accent px-8 text-sm font-medium text-white hover:opacity-90 transition-opacity gap-2 glow-accent"
               >
                 Start for free
                 <ArrowRight className="h-4 w-4" />
@@ -250,6 +286,27 @@ end`}</code>
         </div>
       </section>
 
+      {/* Terminal Demo */}
+      <section className="py-20 border-t border-white/5">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <MotionDiv className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full glass-badge px-4 py-1.5 text-sm text-muted-foreground mb-4">
+              <Monitor className="h-3.5 w-3.5 text-primary" />
+              See it in action
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Try it yourself</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Watch how easy it is to obfuscate and protect your scripts. The demo below
+              runs entirely in your browser.
+            </p>
+          </MotionDiv>
+
+          <MotionDiv delay={0.2}>
+            <TerminalDemo />
+          </MotionDiv>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="py-20 border-t border-white/5">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -265,7 +322,7 @@ end`}</code>
                 <div
                   className={`relative rounded-xl p-6 h-full flex flex-col ${
                     plan.popular
-                      ? "glass border-primary/30 shadow-lg glow-pink"
+                      ? "glass border-primary/30 shadow-lg glow-accent"
                       : "glass"
                   }`}
                 >
@@ -304,6 +361,58 @@ end`}</code>
                   >
                     {plan.cta}
                   </Link>
+                </div>
+              </MotionStaggerItem>
+            ))}
+          </MotionStagger>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="py-20 border-t border-white/5">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <MotionDiv className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 rounded-full glass-badge px-4 py-1.5 text-sm text-muted-foreground mb-4">
+              <HelpCircle className="h-3.5 w-3.5 text-primary" />
+              FAQ
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Frequently Asked Questions</h2>
+            <p className="text-muted-foreground">
+              Everything you need to know about luau.uwu.
+            </p>
+          </MotionDiv>
+
+          <MotionStagger>
+            {faqs.map((faq, i) => (
+              <MotionStaggerItem key={i}>
+                <div className="border-b border-white/5 last:border-0">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    className="w-full flex items-center justify-between py-5 text-left group"
+                  >
+                    <span className="text-sm font-medium group-hover:text-primary transition-colors">{faq.q}</span>
+                    <motion.div
+                      animate={{ rotate: openFaq === i ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="shrink-0 ml-4"
+                    >
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </motion.div>
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {openFaq === i && (
+                      <motion.div
+                        key="content"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <p className="pb-5 text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </MotionStaggerItem>
             ))}
