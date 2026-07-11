@@ -42,6 +42,7 @@ export default function ScriptsPage() {
   const [editObfuscate, setEditObfuscate] = useState(true);
   const [vmType, setVmType] = useState<"none" | "stack" | "register">("register");
   const [vmLevel, setVmLevel] = useState<"debug" | "normal" | "maximum">("maximum");
+  const [perfLevel, setPerfLevel] = useState<1 | 2 | 3>(3);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -174,6 +175,7 @@ export default function ScriptsPage() {
           options: {
             vmType,
             vmLevel,
+            perfLevel,
             encodeStrings: true,
             scramble: true,
           },
@@ -520,6 +522,15 @@ export default function ScriptsPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Performance Level ({perfLevel}/3)</label>
+                <input 
+                  type="range" min="1" max="3" step="1" value={perfLevel}
+                  onChange={(e) => setPerfLevel(parseInt(e.target.value) as 1|2|3)}
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+              </div>
+
               <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
                 <button
                   type="button"
@@ -650,7 +661,14 @@ export default function ScriptsPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Performance Level ({perfLevel}/3)</label>
+                <input 
+                  type="range" min="1" max="3" step="1" value={perfLevel}
+                  onChange={(e) => setPerfLevel(parseInt(e.target.value) as 1|2|3)}
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+              </div>
                 <button
                   onClick={() => setShowEditModal(null)}
                   className="flex-1 h-10 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"

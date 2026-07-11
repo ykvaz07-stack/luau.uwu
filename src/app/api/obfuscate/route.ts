@@ -2,15 +2,12 @@ import { NextResponse } from "next/server";
 import {
   lex,
   parse,
-  obfuscate,
-  encodeStrings,
-  scrambleControlFlow,
-  printChunk,
-  printChunkOneLine,
+  runPipeline,
   compile,
   regCompile,
   generateVM,
   generateRegVM,
+  printChunk,
 } from "../../../../clyde/dist/index.js";
 
 interface ObfuscateRequest {
@@ -18,6 +15,7 @@ interface ObfuscateRequest {
   options?: {
     vmType?: "none" | "stack" | "register";
     vmLevel?: "debug" | "normal" | "maximum";
+    perfLevel?: 1 | 2 | 3;
     encodeStrings?: boolean;
     scramble?: boolean;
   };
@@ -34,18 +32,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json(
-        { success: false, error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
-
     const { createClient } = await import("@supabase/supabase-js");
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const { data: script, error: fetchError } = await supabase
       .from("scripts")
@@ -63,11 +54,7 @@ export async function POST(request: Request) {
     const opts = {
       vmType: "register" as const,
       vmLevel: "maximum" as const,
-      encodeStrings: true,
-      scramble: true,
-      oneLine: false,
-      noRename: false,
-      noPreserve: false,
+      perfLevel: 3 as 1|2|3,
       ...body.options,
     };
 
@@ -81,31 +68,29 @@ export async function POST(request: Request) {
 
     let ast = parse(tokens);
 
-    if (opts.encodeStrings) {
-      ast = encodeStrings(ast, { enabled: true });
-    }
-
-    if (opts.scramble) {
-      ast = scrambleControlFlow(ast, { enabled: true });
-    }
+    // Apply pipeline
+    const obfuscatedAst = runPipeline(ast, {
+        protectionLevel: "max",
+        encodeStrings: { enabled: !!opts.encodeStrings },
+        scrambleControlFlow: { enabled: !!opts.scramble },
+        optimizePerformance: {
+            enabled: true,
+            level: opts.perfLevel,
+            constantFolding: true,
+            deadStoreElimination: true,
+            gcOptimizations: opts.perfLevel === 3
+        }
+    });
 
     let output: string;
     if (opts.vmType === "stack") {
-      const obfuscated = obfuscate(ast, {
-        renameLocals: !opts.noRename,
-        preserveGlobals: !opts.noPreserve,
-      });
-      const chunk = compile(obfuscated);
+      const chunk = compile(obfuscatedAst);
       output = generateVM(chunk, {
         level: opts.vmLevel,
         executorGlobals: opts.vmLevel !== "debug",
       });
     } else if (opts.vmType === "register") {
-      const obfuscated = obfuscate(ast, {
-        renameLocals: !opts.noRename,
-        preserveGlobals: !opts.noPreserve,
-      });
-      const chunk = regCompile(obfuscated);
+      const chunk = regCompile(obfuscatedAst);
       const disableFeatures: string[] = [];
       if (opts.vmLevel === "debug") disableFeatures.push("controlFlowFlattening");
       output = generateRegVM(chunk, {
@@ -115,11 +100,7 @@ export async function POST(request: Request) {
         disableFeatures,
       });
     } else {
-      const obfuscated = obfuscate(ast, {
-        renameLocals: !opts.noRename,
-        preserveGlobals: !opts.noPreserve,
-      });
-      output = opts.oneLine ? printChunkOneLine(obfuscated) : printChunk(obfuscated);
+      output = printChunk(obfuscatedAst);
     }
 
     const obfuscationLevel = body.options?.vmType === "none"
