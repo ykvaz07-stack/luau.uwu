@@ -40,6 +40,8 @@ export default function ScriptsPage() {
   const [obfuscatingId, setObfuscatingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editObfuscate, setEditObfuscate] = useState(true);
+  const [vmType, setVmType] = useState<"none" | "stack" | "register">("register");
+  const [vmLevel, setVmLevel] = useState<"debug" | "normal" | "maximum">("maximum");
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -170,8 +172,8 @@ export default function ScriptsPage() {
         body: JSON.stringify({
           script_id: scriptId,
           options: {
-            vmType: "register",
-            vmLevel: "maximum",
+            vmType,
+            vmLevel,
             encodeStrings: true,
             scramble: true,
           },
@@ -501,34 +503,41 @@ export default function ScriptsPage() {
                       <Shield className="h-3.5 w-3.5 text-primary" />
                       <span className="text-sm font-medium">VM Obfuscation</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      Register VM + encryption
-                    </p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
-                  <button
-                    type="button"
-                    onClick={() => setUploadRequiresKey(!uploadRequiresKey)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                      uploadRequiresKey ? "bg-orange-500" : "bg-muted"
-                    }`}
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">VM Level</label>
+                  <select
+                    value={vmLevel}
+                    onChange={(e) => setVmLevel(e.target.value as any)}
+                    className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        uploadRequiresKey ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Key className="h-3.5 w-3.5 text-orange-500" />
-                      <span className="text-sm font-medium">Require Key</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      Users need a key to use
-                    </p>
+                    <option value="debug">Debug</option>
+                    <option value="normal">Normal</option>
+                    <option value="maximum">Maximum</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
+                <button
+                  type="button"
+                  onClick={() => setUploadRequiresKey(!uploadRequiresKey)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    uploadRequiresKey ? "bg-orange-500" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      uploadRequiresKey ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Key className="h-3.5 w-3.5 text-orange-500" />
+                    <span className="text-sm font-medium">Require Key</span>
                   </div>
                 </div>
               </div>
@@ -604,28 +613,40 @@ export default function ScriptsPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
-                <button
-                  type="button"
-                  onClick={() => setEditObfuscate(!editObfuscate)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                    editObfuscate ? "bg-primary" : "bg-muted"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      editObfuscate ? "translate-x-6" : "translate-x-1"
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditObfuscate(!editObfuscate)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                      editObfuscate ? "bg-primary" : "bg-muted"
                     }`}
-                  />
-                </button>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Shield className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-sm font-medium">Re-obfuscate after save</span>
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        editObfuscate ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-sm font-medium">Re-obfuscate</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Old obfuscated version is replaced with the new one
-                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">VM Level</label>
+                  <select
+                    value={vmLevel}
+                    onChange={(e) => setVmLevel(e.target.value as any)}
+                    className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="debug">Debug</option>
+                    <option value="normal">Normal</option>
+                    <option value="maximum">Maximum</option>
+                  </select>
                 </div>
               </div>
 
