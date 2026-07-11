@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:uwu-dll && next build",
-    "build:uwu-dll": "cd uwu-dll && npm ci && npm run build",
+    "build": "npm run build:clyde && next build",
+    "build:clyde": "cd clyde && npm ci && npm run build",
     "start": "next start",
     "lint": "eslint"
   },
