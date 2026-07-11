@@ -39,7 +39,14 @@ const seedArg = args.findIndex((a) => a === "--seed");
 const seed = seedArg >= 0 ? parseInt(args[seedArg + 1], 10) : undefined;
 const outIndex = args.findIndex((a) => a === "-o" || a === "--output");
 const outFile = outIndex >= 0 ? args[outIndex + 1] : null;
-const fileArgs = args.filter((a, i) => !a.startsWith("-") && (outIndex < 0 || i < outIndex || i > outIndex + 1));
+const skipIndices = new Set();
+if (seedArg >= 0)
+    skipIndices.add(seedArg + 1);
+if (targetIndex >= 0)
+    skipIndices.add(targetIndex + 1);
+if (outIndex >= 0)
+    skipIndices.add(outIndex + 1);
+const fileArgs = args.filter((a, i) => !a.startsWith("-") && !skipIndices.has(i));
 const file = fileArgs[0];
 const source = file
     ? readFileSync(file, "utf-8")

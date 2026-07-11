@@ -451,8 +451,6 @@ export function generateBootstrap(config: BootstrapConfig): string {
   }
 
   assembled.push(`local ${nRaw},${nDec},${nOk},${nFn},${nResult}`);
-
-  assembled.push(`local ${nRaw},${nDec},${nOk},${nFn},${nResult}`);
   assembled.push(`local ${nState}=${stDecode}`);
   assembled.push(`while true do`);
   for (let i = 0; i < cases.length; i++) {

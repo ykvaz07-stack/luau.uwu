@@ -396,7 +396,6 @@ export function generateBootstrap(config) {
         assembled.push(`return _t or function() return 0 end end)()`);
     }
     assembled.push(`local ${nRaw},${nDec},${nOk},${nFn},${nResult}`);
-    assembled.push(`local ${nRaw},${nDec},${nOk},${nFn},${nResult}`);
     assembled.push(`local ${nState}=${stDecode}`);
     assembled.push(`while true do`);
     for (let i = 0; i < cases.length; i++) {
