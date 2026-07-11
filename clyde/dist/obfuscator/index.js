@@ -1,7 +1,7 @@
 export { obfuscate } from "./Obfuscator.js";
 export { encodeStrings } from "./StringEncoder.js";
 export { scrambleControlFlow } from "./ControlFlowScrambler.js";
-export { printChunk, printExpression } from "./Printer.js";
+export { printChunk, printChunkOneLine, printExpression } from "./Printer.js";
 export { obfuscateNumbers } from "./NumberObfuscator.js";
 export { flattenControlFlow } from "./ControlFlowFlattener.js";
 export { injectDeadCodePass } from "./DeadCodeInjector.js";

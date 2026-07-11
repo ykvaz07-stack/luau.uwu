@@ -23,7 +23,12 @@ export type RegFeatureFlag =
   | "syntaxInterpreter"
   | "customCipher"
   | "stubCompression"
-  | "vmNesting";
+  | "vmNesting"
+
+  | "staticEnvironment"
+  | "debuggerDetection"
+  | "bytecodeCompression"
+  | "targetVersionPinning";
 
 export interface RegVMGenOptions {
   level?: RegVMLevel;
@@ -73,6 +78,11 @@ interface BuildCtx {
   rotStep2: number;
   usedOps?: Set<number>;
   argPerm: number[][];
+
+  staticEnvironment: boolean;
+  debuggerDetection: boolean;
+  bytecodeCompression: boolean;
+  targetVersion: string;
 }
 
 interface Fragment {
@@ -1229,7 +1239,12 @@ function buildBuiltinCaptures(ctx: BuildCtx): { code: string; assignOnly: string
 
   const lsBoot = randomName(2);
   lines.push(`local ${lsBoot}=loadstring`);
-  const envBootSrc = `return (type(getfenv)=='function' and getfenv(0)) or _G`;
+  
+  // STATIC_ENVIRONMENT: capture environment without getfenv/setfenv, freeze it
+  const envBootSrc = ctx.staticEnvironment
+    ? `do local _G=(_G or {}); local _frozen={}; for _k,_v in pairs(_G) do _frozen[_k]=_v end; setmetatable(_G,{__index=_frozen,__newindex=function() error("STATIC_ENVIRONMENT: global write blocked",0) end}); return _G end`
+    : `return (type(getfenv)=='function' and getfenv(0)) or _G`;
+  
   const envBootCodes = Array.from(envBootSrc).map(c => {
     const code = c.charCodeAt(0);
     const m = Math.floor(rng() * 4);
@@ -1262,6 +1277,14 @@ function buildBuiltinCaptures(ctx: BuildCtx): { code: string; assignOnly: string
     }
   }
   lines.push(`end`);
+
+  // STATIC_ENVIRONMENT: add getfenv/setfenv detection traps
+  if (ctx.staticEnvironment) {
+    const gfName = encName("getfenv");
+    const sfName = encName("setfenv");
+    lines.push(`${geVar}[${gfName}]=function() error("STATIC_ENVIRONMENT: getfenv blocked",0) end`);
+    lines.push(`${geVar}[${sfName}]=function() error("STATIC_ENVIRONMENT: setfenv blocked",0) end`);
+  }
 
   const nHg = randomName(3);
   const checks: string[] = [
@@ -1536,6 +1559,27 @@ function buildVMRuntime(ctx: BuildCtx, assignStyle: boolean = false): string {
 
   L.push(`${n.ip}=${n.ip}+4`);
 
+  // DEBUGGER_DETECTION: Periodic debugger attachment check that corrupts VM state
+  if (ctx.debuggerDetection && ctx.level !== "debug") {
+    const dbgInterval = 2000 + Math.floor(rng() * 3000);
+    const dbgVar = randomName(3);
+    const dbgVariant = Math.floor(rng() * 4);
+    
+    if (dbgVariant === 0) {
+      // Check for debug library hooks
+      L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _dbg=debug; if _dbg then _dbg.sethook(function() error("DEBUGGER_DETECTED",0) end,"c",0) end end); if ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+    } else if (dbgVariant === 1) {
+      // Check for getfenv/setfenv tampering (STATIC_ENVIRONMENT violation)
+      L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _gef=rawget(_G,"getfenv"); local _sef=rawget(_G,"setfenv"); if _gef and type(_gef)~="function" then error("ENV_TAMPER",0) end; if _sef and type(_sef)~="function" then error("ENV_TAMPER",0) end end); if not ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+    } else if (dbgVariant === 2) {
+      // Check for debug.getinfo anomalies
+      L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _dbg=debug; if _dbg then local _info=_dbg.getinfo(1); if not _info or type(_info)~="table" then error("DBG_INFO_CORRUPT",0) end end end); if not ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+    } else {
+      // Check for executor closure detection functions
+      L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _chk=iscclosure or islclosure or isexecutorclosure or checkclosure; if _chk then local _fn=function() end; if not _chk(_fn) then error("CLOSURE_CHK_FAIL",0) end end end); if not ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+    }
+  }
+
   if (doMut) {
     L.push(`if ${n.ip}%${60000 + Math.floor(rng() * 40001)}<4 and ${nTwVm} then ${nTwVm}() end`);
   }
@@ -1751,31 +1795,50 @@ function buildVMRuntime(ctx: BuildCtx, assignStyle: boolean = false): string {
   return L.join("\n");
 }
 
-const CORE_GLOBALS = [
+function getGlobalsForTarget(target: string): string[] {
+  const base: string[] = [
+    "print","warn","error","assert","type","typeof","tostring","tonumber",
+    "pcall","xpcall","select","unpack","pairs","ipairs","next",
+    "rawget","rawset","rawequal","rawlen","setmetatable","getmetatable",
+    "collectgarbage","dofile","gcinfo",
+    "string","table","math","bit32","coroutine","os","debug","utf8","buffer",
+  ];
 
-  "print","warn","error","assert","type","typeof","tostring","tonumber",
-  "pcall","xpcall","select","unpack","pairs","ipairs","next",
-  "rawget","rawset","rawequal","rawlen","setmetatable","getmetatable",
-  "collectgarbage","dofile","gcinfo",
+  if (target === "luau" || target === "universal") {
+    return [
+      ...base,
+      "game","workspace","script","Instance","Enum",
+      "Vector3","Vector2","CFrame","Color3","BrickColor",
+      "UDim","UDim2","Ray","Region3","Rect","TweenInfo",
+      "NumberSequence","ColorSequence","NumberRange",
+      "NumberSequenceKeypoint","ColorSequenceKeypoint",
+      "PhysicalProperties","Axes","Faces","PathWaypoint",
+      "Random","DateTime","RaycastParams","OverlapParams",
+      "Font","FloatCurveKey","RotationCurveKey",
+      "tick","time","wait","task","spawn","delay",
+      "require","loadstring","load","getfenv","setfenv","newproxy",
+      "_G","shared","settings","stats","UserSettings","version",
+    ];
+  }
+  
+  if (target === "lua51") {
+    return [
+      ...base,
+      "loadstring","load","require","dofile","gcinfo",
+      "_G","_VERSION",
+    ];
+  }
+  
+  if (target === "lua54" || target === "lua53") {
+    return [
+      ...base,
+      "load","require","dofile",
+      "_G","_VERSION",
+    ];
+  }
 
-  "string","table","math","bit32","coroutine","os","debug","utf8","buffer",
-
-  "game","workspace","script","Instance","Enum",
-
-  "Vector3","Vector2","CFrame","Color3","BrickColor",
-  "UDim","UDim2","Ray","Region3","Rect","TweenInfo",
-  "NumberSequence","ColorSequence","NumberRange",
-  "NumberSequenceKeypoint","ColorSequenceKeypoint",
-  "PhysicalProperties","Axes","Faces","PathWaypoint",
-  "Random","DateTime","RaycastParams","OverlapParams",
-  "Font","FloatCurveKey","RotationCurveKey",
-
-  "tick","time","wait","task","spawn","delay",
-
-  "require","loadstring","load","getfenv","setfenv","newproxy",
-
-  "_G","shared","settings","stats","UserSettings","version",
-];
+  return base;
+}
 
 const EXECUTOR_GLOBALS = [
 
@@ -1844,10 +1907,11 @@ const EXECUTOR_GLOBALS = [
 function buildEnvSetup(ctx: BuildCtx): string {
   const n = ctx.names;
   const L: string[] = [];
+  const targetGlobals = getGlobalsForTarget(ctx.targetVersion);
 
   if (ctx.level === "debug") {
     L.push(`local ${n.genv}=(type(getfenv)=="function" and getfenv(0)) or _G`);
-    const entries = CORE_GLOBALS.map(g => `${g}=${g}`).join(",");
+    const entries = targetGlobals.map(g => `${g}=${g}`).join(",");
     L.push(`local ${n.env}=setmetatable({${entries}},{__index=function(_,k) local ok,v=pcall(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`);
     if (ctx.includeExecutor) {
       for (const g of EXECUTOR_GLOBALS) {
@@ -1873,7 +1937,7 @@ function buildEnvSetup(ctx: BuildCtx): string {
 
   L.push(`local ${n.env}=${n.bSetmeta}({},{[${dec}(${encS("__index")})]=function(_,k) local ok,v=${n.bPcall}(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`);
 
-  const allGlobals = ctx.includeExecutor ? [...CORE_GLOBALS, ...EXECUTOR_GLOBALS] : [...CORE_GLOBALS];
+  const allGlobals = ctx.includeExecutor ? [...getGlobalsForTarget(ctx.targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(ctx.targetVersion)];
 
   for (let si = allGlobals.length - 1; si > 0; si--) {
     const sj = Math.floor(rng() * (si + 1));
@@ -1913,7 +1977,7 @@ function buildEnvFragments(ctx: BuildCtx): { fragments: Fragment[]; forwardDecls
   fragments.push({ code: `${n.genv}=loadstring(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`, layer: 1 });
   fragments.push({ code: `${n.env}=${n.bSetmeta}({},{[${dec}(${encS("__index")})]=function(_,k) local ok,v=${n.bPcall}(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`, layer: 2 });
 
-  const allGlobals = ctx.includeExecutor ? [...CORE_GLOBALS, ...EXECUTOR_GLOBALS] : [...CORE_GLOBALS];
+  const allGlobals = ctx.includeExecutor ? [...getGlobalsForTarget(ctx.targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(ctx.targetVersion)];
   for (let si = allGlobals.length - 1; si > 0; si--) {
     const sj = Math.floor(rng() * (si + 1));
     [allGlobals[si], allGlobals[sj]] = [allGlobals[sj], allGlobals[si]];
@@ -3371,6 +3435,10 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
     spiralPrime, spiralOffset, layerVariants,
     dispatchVariant, dispatchMask, rotSeed, rotStep, rotStep2,
     argPerm: generateArgPerms(isObf),
+    staticEnvironment: featureEnabled(options, "staticEnvironment", level === "max"),
+    debuggerDetection: featureEnabled(options, "debuggerDetection", level !== "debug"),
+    bytecodeCompression: featureEnabled(options, "bytecodeCompression", level === "max"),
+    targetVersion: options.target || "universal",
   };
 
   const doFusion = featureEnabled(options, "opcodeFusion", level !== "debug");

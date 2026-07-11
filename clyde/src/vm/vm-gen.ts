@@ -1956,23 +1956,50 @@ function serializeProtos(
   return `{${items.join(",")}}`;
 }
 
-const CORE_GLOBALS = [
-  "print", "warn", "error", "assert", "type", "typeof", "tostring", "tonumber",
-  "pcall", "xpcall", "select", "unpack", "pairs", "ipairs", "next",
-  "rawget", "rawset", "rawequal", "rawlen", "setmetatable", "getmetatable",
-  "string", "table", "math", "bit32", "coroutine", "os", "debug", "utf8", "buffer",
-  "game", "workspace", "script", "Instance",
-  "Vector3", "Vector2", "CFrame", "Color3", "BrickColor", "UDim", "UDim2",
-  "Enum", "Ray", "Region3", "Rect", "TweenInfo",
-  "NumberSequence", "ColorSequence", "NumberRange", "Random", "DateTime",
-  "RaycastParams", "OverlapParams",
-  "tick", "time", "wait", "task", "spawn", "delay",
-  "require", "loadstring", "load", "getfenv", "setfenv", "newproxy",
-  "_G", "shared", "settings", "stats", "UserSettings", "version",
-];
+function getGlobalsForTarget(target: string): string[] {
+  const base: string[] = [
+    "print", "warn", "error", "assert", "type", "typeof", "tostring", "tonumber",
+    "pcall", "xpcall", "select", "unpack", "pairs", "ipairs", "next",
+    "rawget", "rawset", "rawequal", "rawlen", "setmetatable", "getmetatable",
+    "string", "table", "math", "bit32", "coroutine", "os", "debug", "utf8", "buffer",
+  ];
 
+  if (target === "luau" || target === "universal") {
+    return [
+      ...base,
+      "game", "workspace", "script", "Instance",
+      "Vector3", "Vector2", "CFrame", "Color3", "BrickColor",
+      "UDim", "UDim2", "Ray", "Region3", "Rect", "TweenInfo",
+      "NumberSequence", "ColorSequence", "NumberRange", "Random", "DateTime",
+      "RaycastParams", "OverlapParams",
+      "Enum", "Ray", "Region3", "Rect", "TweenInfo",
+      "tick", "time", "wait", "task", "spawn", "delay",
+      "require", "loadstring", "load", "getfenv", "setfenv", "newproxy",
+      "_G", "shared", "settings", "stats", "UserSettings", "version",
+    ];
+  }
+  
+  if (target === "lua51") {
+    return [
+      ...base,
+      "loadstring", "load", "require", "dofile", "gcinfo",
+      "_G", "_VERSION",
+    ];
+  }
+  
+  if (target === "lua54" || target === "lua53") {
+    return [
+      ...base,
+      "load", "require", "dofile",
+      "_G", "_VERSION",
+    ];
+  }
+
+  return base;
+}
 const EXECUTOR_GLOBALS = [
   "getgenv", "getrenv", "getsenv", "getrawmetatable", "setrawmetatable",
+
   "hookfunction", "hookmetamethod", "newcclosure", "iscclosure", "islclosure",
   "checkcaller", "cloneref", "getconnections", "firesignal",
   "getgc", "getinstances", "getnilinstances", "getscripts", "getrunningscripts",
@@ -2016,14 +2043,15 @@ function collatzEncodeString(s: string, seed: number): number[] {
 function buildEnvSetup(
   n: NameMap,
   level: VMGenLevel,
-  includeExecutor: boolean
+  includeExecutor: boolean,
+  targetVersion: string = "universal"
 ): string {
   const genv = n.genv;
   const env = n.env;
 
   if (level === "debug") {
     let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getfenv)=="function" and getfenv(0))or _G\n`;
-    const entries = CORE_GLOBALS.map(g => `${g}=${g}`).join(",");
+    const entries = getGlobalsForTarget(targetVersion).map(g => `${g}=${g}`).join(",");
     code += `local ${env}=setmetatable({${entries}},{__index=function(_,k) local ok,v=pcall(function() return ${genv}[k] end);if ok then return v end;return nil end})\n`;
     if (includeExecutor) {
       for (const g of EXECUTOR_GLOBALS) {
@@ -2140,7 +2168,7 @@ function buildEnvSetup(
     lines.push(`local ${env}=${bSM}({},{[${idxEsc}]=function(${fbP},${fbK}) local ${valV}=${bRG}(${genv},${fbK});if ${valV}~=nil then return ${valV} end;local ${okV};${okV},${valV}=${bPC}(function() return ${genv}[${fbK}] end);return ${okV} and ${valV} or nil end})`);
   }
 
-  const allGlobals = includeExecutor ? [...CORE_GLOBALS, ...EXECUTOR_GLOBALS] : [...CORE_GLOBALS];
+  const allGlobals = includeExecutor ? [...getGlobalsForTarget(targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(targetVersion)];
   for (let si = allGlobals.length - 1; si > 0; si--) {
     const sj = Math.floor(rng() * (si + 1));
     [allGlobals[si], allGlobals[sj]] = [allGlobals[sj], allGlobals[si]];
@@ -3591,6 +3619,8 @@ export interface VMGenOptions {
   noCompression?: boolean;
 
   splitTraces?: boolean;
+
+  target?: string;
 }
 
 function featureEnabled(options: VMGenOptions, flag: FeatureFlag, levelDefault: boolean): boolean {
@@ -3842,7 +3872,7 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
 
   const n = createNames(level);
 
-  const envSetup = buildEnvSetup(n, level, includeExecutor);
+  const envSetup = buildEnvSetup(n, level, includeExecutor, options.target ?? "universal");
 
   const codeHash = featureEnabled(options, "antiTamper", level === "max") ? computeCodeHash(mappedCode) : 0;
   const integrityRollupHash = doIntegrityRollup ? computeCodeHash(mappedCode) : 0;

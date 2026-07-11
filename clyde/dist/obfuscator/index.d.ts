@@ -1,7 +1,7 @@
 export { obfuscate, type ObfuscatorOptions } from "./Obfuscator.js";
 export { encodeStrings, type StringEncoderOptions } from "./StringEncoder.js";
 export { scrambleControlFlow, type ControlFlowScramblerOptions } from "./ControlFlowScrambler.js";
-export { printChunk, printExpression } from "./Printer.js";
+export { printChunk, printChunkOneLine, printExpression } from "./Printer.js";
 export { obfuscateNumbers, type NumberObfuscatorOptions } from "./NumberObfuscator.js";
 export { flattenControlFlow, type ControlFlowFlattenerOptions } from "./ControlFlowFlattener.js";
 export { injectDeadCodePass, type DeadCodeInjectorOptions } from "./DeadCodeInjector.js";

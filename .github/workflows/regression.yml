@@ -1,0 +1,167 @@
+name: Clyde Regression Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  regression-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./clyde
+      
+      - name: Build Clyde
+        run: npm run build
+        working-directory: ./clyde
+      
+      - name: Install Luau
+        run: |
+          curl -L -o luau.zip https://github.com/luau-lang/luau/releases/download/0.665/luau-ubuntu-22.04.zip
+          unzip -o luau.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/luau
+          luau --version
+      
+      - name: Run Regression Tests
+        run: |
+          cd tests/regression
+          npm install --prefix ../.. tsx
+          npx tsx regression-test.ts
+        env:
+          LUAU_BIN: /usr/local/bin/luau
+      
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: tests/regression/work/
+          retention-days: 7
+
+  performance-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./clyde
+      
+      - name: Build Clyde
+        run: npm run build
+        working-directory: ./clyde
+      
+      - name: Install Luau
+        run: |
+          curl -L -o luau.zip https://github.com/luau-lang/luau/releases/download/0.665/luau-ubuntu-22.04.zip
+          unzip -o luau.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/luau
+          luau --version
+      
+      - name: Run Performance Benchmarks
+        run: |
+          mkdir -p benchmarks/work
+          
+          # Create benchmark scripts
+          cat > benchmarks/math_heavy.lua << 'EOF'
+          local sum = 0
+          for i = 1, 100000 do
+            sum = sum + math.sin(i) * math.cos(i)
+            sum = sum + math.sqrt(i)
+          end
+          print("Result: " .. sum)
+          EOF
+          
+          cat > benchmarks/table_heavy.lua << 'EOF'
+          local t = {}
+          for i = 1, 50000 do
+            t[i] = {id = i, name = "item" .. i, data = {1,2,3,4,5}}
+          end
+          local sum = 0
+          for i = 1, #t do
+            sum = sum + t[i].id
+            for j = 1, 5 do
+              sum = sum + t[i].data[j]
+            end
+          end
+          print("Result: " .. sum)
+          EOF
+          
+          cat > benchmarks/string_heavy.lua << 'EOF'
+          local s = ""
+          for i = 1, 20000 do
+            s = s .. "item" .. i .. ","
+          end
+          local parts = {}
+          for part in string.gmatch(s, "([^,]+)") do
+            table.insert(parts, part)
+          end
+          print("Count: " .. #parts)
+          EOF
+      
+      - name: Benchmark native vs obfuscated
+        run: |
+          cd benchmarks
+          
+          for level in debug normal max; do
+            for script in math_heavy.lua table_heavy.lua string_heavy.lua; do
+              echo "Testing $script at $level level..."
+              
+              # Native
+              echo "Native:"
+              time luau $script > /dev/null
+              
+              # Obfuscated
+              echo "Obfuscated ($level):"
+              node ../../clyde/dist/cli/obfuscate.js \
+                --input $script \
+                --output ${script%.lua}_${level}.lua \
+                --level $level \
+                --vm-type register \
+                --perf-level 3
+              
+              time luau ${script%.lua}_${level}.lua > /dev/null
+              
+              echo "---"
+            done
+          done
+        working-directory: ./clyde
+        env:
+          LUAU_BIN: /usr/local/bin/luau
+
+  build-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+        working-directory: ./clyde

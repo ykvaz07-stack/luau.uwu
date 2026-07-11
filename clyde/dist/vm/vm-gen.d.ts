@@ -14,6 +14,7 @@ export interface VMGenOptions {
     forceFeatures?: FeatureFlag[];
     noCompression?: boolean;
     splitTraces?: boolean;
+    target?: string;
 }
 export declare function generateVM(chunk: BytecodeChunk, options?: VMGenOptions): string;
 //# sourceMappingURL=vm-gen.d.ts.map
