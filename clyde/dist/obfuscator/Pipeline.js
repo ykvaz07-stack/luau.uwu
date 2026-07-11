@@ -11,6 +11,7 @@ import { injectAntiDebug } from "./AntiDebugInjector.js";
 import { embedWatermark } from "./WatermarkEngine.js";
 import { applyControlFlowDoubling } from "./ControlFlowDoubling.js";
 import { scrambleArrays } from "./ArrayScrambler.js";
+import { optimizePerformance } from "./PerformanceOptimizer.js";
 import { compilePhantom } from "../vm/phantom-compiler.js";
 import { generatePhantomVM } from "../vm/phantom-vm-gen.js";
 function createRng(seed) {
@@ -58,6 +59,7 @@ function getPassesForLevel(level, baseSeed) {
     passes.push({ name: "obfuscateNumbers", fn: obfuscateNumbers, options: { seed: baseSeed + 14, useBitops: true } });
     passes.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: { seed: baseSeed + 15 } });
     passes.push({ name: "scrambleArrays", fn: scrambleArrays, options: { seed: baseSeed + 16, minFields: 4 } });
+    passes.push({ name: "optimizePerformance", fn: optimizePerformance, options: { seed: baseSeed + 17, level: 3 } });
     return passes;
 }
 export function runPipeline(ast, options = {}) {
@@ -91,6 +93,8 @@ export function runPipeline(ast, options = {}) {
         customPasses.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: options.controlFlowDoubling });
     if (options.scrambleArrays !== undefined)
         customPasses.push({ name: "scrambleArrays", fn: scrambleArrays, options: options.scrambleArrays });
+    if (options.optimizePerformance !== undefined)
+        customPasses.push({ name: "optimizePerformance", fn: optimizePerformance, options: options.optimizePerformance });
     let passes;
     if (customPasses.length > 0) {
         passes = customPasses;

@@ -13,6 +13,8 @@ export { embedWatermark, type WatermarkEngineOptions } from "./WatermarkEngine.j
 export { MBAEngine, type MBAConfig } from "./MBAExpressionEngine.js";
 export { applyControlFlowDoubling, type ControlFlowDoublingOptions } from "./ControlFlowDoubling.js";
 export { scrambleArrays, type ArrayScramblerOptions } from "./ArrayScrambler.js";
+export { optimizePerformance, type PerformanceOptimizerOptions } from "./PerformanceOptimizer.js";
+export { processMacros, shouldVirtualize, shouldEncrypt, type MacroAnnotations, type MacroProcessorOptions } from "./MacroProcessor.js";
 export { runPipeline, runPipelineWithPhantomVM, type PipelineOptions, type ProtectionLevel } from "./Pipeline.js";
 export { compilePhantom } from "../vm/phantom-compiler.js";
 export { generatePhantomVM, type PhantomGenOptions } from "../vm/phantom-vm-gen.js";

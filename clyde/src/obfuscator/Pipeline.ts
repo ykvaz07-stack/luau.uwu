@@ -12,6 +12,7 @@ import { injectAntiDebug, type AntiDebugInjectorOptions } from "./AntiDebugInjec
 import { embedWatermark, type WatermarkEngineOptions } from "./WatermarkEngine.js";
 import { applyControlFlowDoubling, type ControlFlowDoublingOptions } from "./ControlFlowDoubling.js";
 import { scrambleArrays, type ArrayScramblerOptions } from "./ArrayScrambler.js";
+import { optimizePerformance, type PerformanceOptimizerOptions } from "./PerformanceOptimizer.js";
 import { compilePhantom } from "../vm/phantom-compiler.js";
 import { generatePhantomVM } from "../vm/phantom-vm-gen.js";
 import type { PhantomGenOptions } from "../vm/phantom-vm-gen.js";
@@ -32,6 +33,7 @@ export interface PipelineOptions {
   watermark?: WatermarkEngineOptions;
   controlFlowDoubling?: ControlFlowDoublingOptions;
   scrambleArrays?: ArrayScramblerOptions;
+  optimizePerformance?: PerformanceOptimizerOptions;
   phantomVM?: PhantomGenOptions;
   protectionLevel?: ProtectionLevel;
   seed?: number;
@@ -97,6 +99,7 @@ function getPassesForLevel(level: ProtectionLevel, baseSeed: number): Registered
   passes.push({ name: "obfuscateNumbers", fn: obfuscateNumbers, options: { seed: baseSeed + 14, useBitops: true } });
   passes.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: { seed: baseSeed + 15 } });
   passes.push({ name: "scrambleArrays", fn: scrambleArrays, options: { seed: baseSeed + 16, minFields: 4 } });
+  passes.push({ name: "optimizePerformance", fn: optimizePerformance, options: { seed: baseSeed + 17, level: 3 } });
 
   return passes;
 }
@@ -121,6 +124,7 @@ export function runPipeline(ast: Chunk, options: PipelineOptions = {}): Chunk {
   if (options.watermark !== undefined) customPasses.push({ name: "watermark", fn: embedWatermark, options: options.watermark });
   if (options.controlFlowDoubling !== undefined) customPasses.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: options.controlFlowDoubling });
   if (options.scrambleArrays !== undefined) customPasses.push({ name: "scrambleArrays", fn: scrambleArrays, options: options.scrambleArrays });
+  if (options.optimizePerformance !== undefined) customPasses.push({ name: "optimizePerformance", fn: optimizePerformance, options: options.optimizePerformance });
 
   let passes: RegisteredPass[];
   if (customPasses.length > 0) {

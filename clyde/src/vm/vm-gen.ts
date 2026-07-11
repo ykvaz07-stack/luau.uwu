@@ -2656,6 +2656,7 @@ function buildVMFunction(
   xorStep: number = 0,
   codeXorKey: number = 0,
   codeHash: number = 0,
+  integrityRollupHash: number = 0,
   lazyBaseKey: number = 0,
   lazyKeyPrime: number = 0,
   ctxInit: number = 0,
@@ -2671,6 +2672,10 @@ function buildVMFunction(
   traceCount: number = 1,
   traceStart: number = 0,
   traceEnd: number = 0,
+  doGcOpt: boolean = false,
+  doPlatformLock: boolean = false,
+  doIntegrityRollup: boolean = false,
+  doStackCanary: boolean = false,
 ): string {
   const doLazyDecode = lazyBaseKey !== 0;
   const doStringPools = poolsVarName !== "";
@@ -2707,6 +2712,10 @@ function buildVMFunction(
   lines.push(`${n.upvalues}=${n.upvalues} or {}`);
   lines.push(`${n.varargs}=${n.varargs} or {}`);
   lines.push(`local ${n.varargCount}=${n.varargs}.n or #${n.varargs}`);
+
+  if (doGcOpt) {
+    lines.push(`collectgarbage("stop")`);
+  }
 
   if (doLazyDecode) {
 
@@ -2836,6 +2845,19 @@ function buildVMFunction(
     const hv = randomName(3);
     lines.push(`if not ${n.initLocals} then do local ${hv}=0;for _i=1,#${n.code} do local _v=${n.code}[_i];if _v<0 then _v=_v+0x100000000 end;${hv}=bit32.bxor(${hv},_v);${hv}=bit32.lrotate(${hv},7) end`);
     lines.push(`if ${hv}~=${codeHash} then for _k in pairs(${n.handlers}) do ${n.handlers}[_k]=nil end end end end`);
+  }
+
+  const irState = doIntegrityRollup && level === "max" ? randomName(3) : "";
+  const irAcc = doIntegrityRollup && level === "max" ? randomName(3) : "";
+  if (doIntegrityRollup && level === "max") {
+    lines.push(`local ${irState}=${toHexInt(integrityRollupHash >>> 0)}`);
+    lines.push(`local ${irAcc}=0`);
+  }
+
+  const scVal = doStackCanary && level === "max" ? randomName(3) : "";
+  if (doStackCanary && level === "max") {
+    const scSeed = (Math.floor(rng() * 0xFFFFFFFF) + 1) >>> 0;
+    lines.push(`local ${scVal}=${toHexInt(scSeed)}`);
   }
 
   if (isTraceMode) {
@@ -3291,6 +3313,23 @@ function buildVMFunction(
     lines.push(`if ${rtV}>0 and _ct()-${rtV}>0.05 then ${detFlag}=${detFlag}+1 end end`);
     lines.push(`end`);
 
+    if (doIntegrityRollup) {
+      const irMask = [0x7FF, 0xFFF, 0x17FF][Math.floor(rng() * 3)];
+      const irHv = randomName(3);
+      const irI = randomName(2);
+      const irV = randomName(2);
+      lines.push(`if bit32.band(${cycleVar},${toHexInt(irMask)})==0 and ${cycleVar}>0 then`);
+      lines.push(`local ${irHv}=0;for ${irI}=1,#${n.code} do local ${irV}=${n.code}[${irI}];if ${irV}<0 then ${irV}=${irV}+0x100000000 end;${irHv}=bit32.bxor(${irHv},${irV});${irHv}=bit32.lrotate(${irHv},7) end`);
+      lines.push(`if ${irHv}~=${irState} then for _k in pairs(${n.handlers}) do ${n.handlers}[_k]=nil end;${detFlag}=${detFlag}+99 end end`);
+    }
+
+    if (doStackCanary) {
+      const scMask = [0x3FF, 0xBFF, 0x1BFF][Math.floor(rng() * 3)];
+      const scChk = randomName(3);
+      lines.push(`if bit32.band(${cycleVar},${toHexInt(scMask)})==0 and ${cycleVar}>0 then`);
+      lines.push(`local ${scChk}=bit32.bxor(${n.stackTop},${n.ip});if ${scChk}~=${scVal} then ${detFlag}=${detFlag}+1 end end`);
+    }
+
     lines.push(`if ${detFlag}>1 then ${punishDelay}=${punishDelay}+1 end`);
     const punishThresh = 100 + Math.floor(rng() * 400);
     lines.push(`if ${punishDelay}>${punishThresh} and bit32.band(${cycleVar},0xFF)==0 then`);
@@ -3372,11 +3411,18 @@ function buildVMFunction(
     lines.push(`if #${poolLoc}<${poolMax} then ${poolLoc}[#${poolLoc}+1]=${n.locals} end`);
     lines.push(`if #${poolCb}<${poolMax} then ${poolCb}[#${poolCb}+1]=${n.callBases} end`);
 
+    if (doGcOpt) {
+      lines.push(`collectgarbage("restart")`);
+    }
+
     lines.push(`if ${rvVar} then return table.unpack(${rvVar},1,${rvVar}.n or #${rvVar}) end`);
     lines.push(`if ${n.doReturn} then return end`);
     lines.push(`return nil`);
     lines.push(`end`);
   } else {
+    if (doGcOpt) {
+      lines.push(`collectgarbage("restart")`);
+    }
     lines.push(`if ${n.doReturn} then`);
     lines.push(`if ${n.retPack} then return table.unpack(${n.retPack},1,${n.retPack}.n or #${n.retPack}) end`);
     lines.push(`if ${n.retFromStack} then`);
@@ -3517,7 +3563,8 @@ export type FeatureFlag =
   | "antiTamper" | "superOperators" | "constantFolding"
   | "minification" | "stringFragment" | "lazyDecode" | "nopCamouflage" | "contextOpcodes" | "nonLinearJumps"
   | "antiHookDeep" | "antiDump" | "sandboxDetect" | "cfi" | "runtimeMonitor"
-  | "stringMutation" | "adaptiveFragments" | "stackPooling";
+  | "stringMutation" | "adaptiveFragments" | "stackPooling"
+  | "gcOptimizations" | "platformLock" | "integrityRollup" | "stackCanary" | "envValidation";
 
 export interface VMGenOptions {
 
@@ -3639,6 +3686,7 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
           vmId: "outer:3",
           polymorphicSeed: outerSeed,
           executorGlobals: true,
+          forceFeatures: ["gcOptimizations", "platformLock", "integrityRollup", "stackCanary", "envValidation"],
         });
         const t5 = Date.now();
         console.log(`[telemetry:outer:3] outer_vm_size: ${outerVM.length} chars (${t5 - t4}ms)`);
@@ -3711,6 +3759,7 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
         vmId: "outer",
         polymorphicSeed: outerSeed,
         executorGlobals: true,
+        forceFeatures: ["gcOptimizations", "platformLock", "integrityRollup", "stackCanary", "envValidation"],
       });
       const t3 = Date.now();
       console.log(`[telemetry:outer] outer_vm_size: ${outerVM.length} chars (${t3 - t2}ms)`);
@@ -3735,6 +3784,7 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
         vmId: "fallback",
         polymorphicSeed: outerSeed,
         executorGlobals: options.executorGlobals,
+        forceFeatures: ["gcOptimizations", "platformLock", "integrityRollup", "stackCanary", "envValidation"],
       });
     }
   }
@@ -3757,6 +3807,12 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
   const ctxPrime = doContextOps ? ((Math.floor(rng() * 0xFFFFFFFF) | 1) >>> 0) : 0;
   const doNonLinearJumps = featureEnabled(options, "nonLinearJumps", level === "max");
   const jumpKey = doNonLinearJumps ? (1 + Math.floor(rng() * 0xFFFE)) : 0;
+
+  const doGcOpt = featureEnabled(options, "gcOptimizations", level === "max");
+  const doPlatformLock = featureEnabled(options, "platformLock", level === "max");
+  const doEnvValidation = featureEnabled(options, "envValidation", level === "max");
+  const doIntegrityRollup = featureEnabled(options, "integrityRollup", level === "max");
+  const doStackCanary = featureEnabled(options, "stackCanary", level === "max");
 
   if (featureEnabled(options, "superOperators", level === "max")) {
     fuseChunk(chunk);
@@ -3789,6 +3845,7 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
   const envSetup = buildEnvSetup(n, level, includeExecutor);
 
   const codeHash = featureEnabled(options, "antiTamper", level === "max") ? computeCodeHash(mappedCode) : 0;
+  const integrityRollupHash = doIntegrityRollup ? computeCodeHash(mappedCode) : 0;
 
   const protoKeys = level === "max" ? {
     pK: randomName(2), pC: randomName(2), pP: randomName(2),
@@ -3906,14 +3963,16 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
 
       // compute trace-specific code hash for anti-tamper (opaque predicate)
       const trCodeHash = featureEnabled(options, "antiTamper", level === "max") ? computeCodeHash(trCode) : 0;
+      const trIntegrityHash = doIntegrityRollup ? computeCodeHash(trCode) : 0;
 
       const trFunc = buildVMFunction(
         trN, trEncode, level, encodeStrings, xorKey, xorStep,
-        trCodeXor, trCodeHash, lazyBaseKey, lazyKeyPrime,
+        trCodeXor, trCodeHash, trIntegrityHash, lazyBaseKey, lazyKeyPrime,
         ctxInit, ctxPrime, jumpKey, protoKeys,
         cipherSeeds, doMutation, doPooling, poolsVarName,
         true, t, traceSplits.length,
-        traceSplits[t].start + 1, traceSplits[t].end + 1
+        traceSplits[t].start + 1, traceSplits[t].end + 1,
+        doGcOpt, doPlatformLock, doIntegrityRollup, doStackCanary
       );
       traceData.push({
         encode: trEncode,
@@ -4032,10 +4091,16 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
     parts.push(dispLines.join("\n"));
 
     // main entry: call dispatcher; pass env as the only arg to avoid exposing data tables to outer scope
+    if (doPlatformLock) {
+      parts.push(`if not rawget(_G, "game") or not rawget(_G, "game").GetService then return nil, "unsupported environment" end`);
+    }
+    if (doEnvValidation) {
+      parts.push(`if type(type)~="function" or type(pcall)~="function" or type(rawget)~="function" then return nil, "corrupted environment" end`);
+    }
     parts.push(`return ${dispName}(${n.env})`);
   } else {
     // ── Standard (non-trace) VM path ─────────────────────────────────
-    const vmFunction = buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey, xorStep, effectiveCodeXorKey, codeHash, lazyBaseKey, lazyKeyPrime, ctxInit, ctxPrime, jumpKey, protoKeys, cipherSeeds, doMutation, doPooling, poolsVarName);
+    const vmFunction = buildVMFunction(n, opcodeEncode, level, encodeStrings, xorKey, xorStep, effectiveCodeXorKey, codeHash, integrityRollupHash, lazyBaseKey, lazyKeyPrime, ctxInit, ctxPrime, jumpKey, protoKeys, cipherSeeds, doMutation, doPooling, poolsVarName, false, 0, 1, 0, 0, doGcOpt, doPlatformLock, doIntegrityRollup, doStackCanary);
     const dataP = serializeProtos(chunk.protos, opcodeEncode, encodeStrings, doShuffle, xorKey, doLazyDecode ? false : doFragment, xorStep, effectiveCodeXorKey, doConstantFold, lazyBaseKey, lazyKeyPrime, level === "max", protoKeys, cipherSeeds, doMutation);
 
     const dC = randomName(3);
@@ -4071,6 +4136,12 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
         [declOrder[di], declOrder[dj]] = [declOrder[dj], declOrder[di]];
       }
       for (const idx of declOrder) parts.push(dataDecls[idx]);
+    }
+    if (doPlatformLock) {
+      parts.push(`if not rawget(_G, "game") or not rawget(_G, "game").GetService then return nil, "unsupported environment" end`);
+    }
+    if (doEnvValidation) {
+      parts.push(`if type(type)~="function" or type(pcall)~="function" or type(rawget)~="function" then return nil, "corrupted environment" end`);
     }
     parts.push(`return ${n.run}(${dK},${dC},${n.env},${dP})`);
   }

@@ -8,6 +8,8 @@ import { scrambleControlFlow } from "../obfuscator/ControlFlowScrambler.js";
 import { injectDeadCodePass } from "../obfuscator/DeadCodeInjector.js";
 import { runPipeline } from "../obfuscator/Pipeline.js";
 import { printChunk } from "../obfuscator/Printer.js";
+import { optimizePerformance } from "../obfuscator/PerformanceOptimizer.js";
+import { processMacros } from "../obfuscator/MacroProcessor.js";
 import { compile } from "../vm/Compiler.js";
 import { generateVM } from "../vm/vm-gen.js";
 const args = process.argv.slice(2);
@@ -28,6 +30,11 @@ const eliteOpt = args.includes("--elite");
 const compressOpt = args.includes("--compress");
 const noCompressOpt = args.includes("--no-compress");
 const unicodeOpt = args.includes("--unicode");
+const optimizeOpt = args.includes("--optimize");
+const noVMMarkersOpt = args.includes("--no-vm-markers");
+const encFuncOpt = args.includes("--enc-func");
+const targetIndex = args.findIndex((a) => a === "--target");
+const targetVersion = targetIndex >= 0 ? args[targetIndex + 1] : "luau";
 const seedArg = args.findIndex((a) => a === "--seed");
 const seed = seedArg >= 0 ? parseInt(args[seedArg + 1], 10) : undefined;
 const outIndex = args.findIndex((a) => a === "-o" || a === "--output");
@@ -43,12 +50,16 @@ function foo(a, b)
   return a + b
 end
 `;
+const annotations = processMacros(source, { enabled: noVMMarkersOpt || encFuncOpt });
 const { tokens, errors } = lex(source);
 if (errors.length > 0) {
-    console.error("Lexer-Fehler:", errors);
+    console.error("Lexer errors:", errors);
     process.exit(1);
 }
 let ast = parse(tokens);
+if (optimizeOpt) {
+    ast = optimizePerformance(ast, { level: 3, seed });
+}
 let protectionLevel = "low";
 if (eliteOpt || maxOpt)
     protectionLevel = "max";
@@ -56,6 +67,14 @@ else if (advancedOpt || productionOpt)
     protectionLevel = "high";
 else if (scrambleOpt || junkOpt)
     protectionLevel = "medium";
+const vmGenOptions = {};
+if (targetVersion === "luau") {
+    vmGenOptions.executorGlobals = true;
+}
+else if (targetVersion === "lua51" || targetVersion === "lua52") {
+    vmGenOptions.executorGlobals = false;
+    vmGenOptions.targetVersion = targetVersion;
+}
 let output;
 if (vmOpt) {
     const pipelineResult = runPipeline(ast, {
@@ -73,7 +92,14 @@ if (vmOpt) {
         level = "max";
     const nesting = tripleOpt ? 2 : 0;
     const splitTraces = maxOpt || eliteOpt;
-    output = generateVM(chunk, { level, executorGlobals: level !== "debug", noCompression: noCompressOpt, nesting, splitTraces });
+    output = generateVM(chunk, {
+        level,
+        executorGlobals: level !== "debug",
+        noCompression: noCompressOpt,
+        nesting,
+        splitTraces,
+        ...vmGenOptions,
+    });
 }
 else {
     if (eliteOpt) {
@@ -98,7 +124,7 @@ else {
 }
 if (outFile) {
     writeFileSync(outFile, output, "utf-8");
-    console.error(`Obfuskiert nach ${outFile}`);
+    console.error(`Obfuscated to ${outFile}`);
 }
 else {
     console.log(output);

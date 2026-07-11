@@ -1,11 +1,22 @@
-import type { Chunk, Statement, LastStatement, Expression } from "../ast/types.js";
+import type { Chunk, Statement, LastStatement, Expression, CallExpression, MemberExpression, LocalStatement, IfStatement } from "../ast/types.js";
 import type { SourceLocation } from "../tokens.js";
 
 export interface AntiDebugInjectorOptions {
   enabled?: boolean;
   seed?: number;
   intensity?: number;
+  useDebugLibrary?: boolean;
+  hookCheck?: boolean;
+  callDepthCheck?: boolean;
+  stackFrameCheck?: boolean;
+  environmentLock?: boolean;
+  crashOnDetection?: boolean;
 }
+
+const defaultLoc: SourceLocation = {
+  start: { line: 1, column: 1, offset: 0 },
+  end: { line: 1, column: 1, offset: 0 },
+};
 
 function makeLoc(start: SourceLocation["start"], end: SourceLocation["end"]): SourceLocation {
   return { start, end };
@@ -23,6 +34,14 @@ function strExp(s: string, loc: SourceLocation): Expression {
   return { type: "StringLiteral", value: s, loc };
 }
 
+function boolExp(v: boolean, loc: SourceLocation): Expression {
+  return { type: "BooleanLiteral", value: v, loc };
+}
+
+function nilExp(loc: SourceLocation): Expression {
+  return { type: "NilLiteral", loc };
+}
+
 function binExp(left: Expression, op: string, right: Expression, loc: SourceLocation): Expression {
   return { type: "BinaryExpression", operator: op, left, right, loc };
 }
@@ -35,79 +54,166 @@ function createRng(seed: number): () => number {
   };
 }
 
-function injectAntiDebugStatements(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
-  const stmts: Statement[] = [];
-  const guardVar = `_ad${Math.floor(rng() * 100000)}`;
+function mbaInt(n: number, rng: () => number, loc: SourceLocation): Expression {
+  const variant = Math.floor(rng() * 4);
+  switch (variant) {
+    case 0: {
+      const a = Math.floor(rng() * 50) + 1;
+      return binExp(numExp(n + a, loc), "-", numExp(a, loc), loc);
+    }
+    case 1: {
+      const a = Math.floor(rng() * 20) + 2;
+      const q = Math.floor(n / a);
+      const r = n - q * a;
+      if (q < 1) return numExp(n, loc);
+      return binExp(binExp(numExp(a, loc), "*", numExp(q, loc), loc), "+", numExp(r, loc), loc);
+    }
+    case 2: {
+      const a = Math.floor(rng() * 100) + 1;
+      const b = Math.floor(rng() * 100) + 1;
+      const sum = a + b;
+      const diff = n - sum;
+      if (diff >= 0) return binExp(binExp(numExp(a, loc), "+", numExp(b, loc), loc), "+", numExp(diff, loc), loc);
+      return binExp(binExp(numExp(a, loc), "+", numExp(b, loc), loc), "-", numExp(-diff, loc), loc);
+    }
+    default: {
+      const a = Math.floor(rng() * 10) + 2;
+      const p = Math.floor(rng() * 50) + 1;
+      const t = n + p;
+      const q = Math.floor(t / a);
+      const r = t - q * a;
+      const expr = binExp(numExp(a, loc), "*", numExp(q, loc), loc);
+      return binExp(binExp(expr, "+", numExp(r, loc), loc), "-", numExp(p, loc), loc);
+    }
+  }
+}
 
-  if (rng() < intensity) {
-    stmts.push({
-      type: "LocalStatement",
-      vars: [{ name: guardVar, type: undefined }],
-      values: [{
-        type: "CallExpression",
-        callee: {
-          type: "MemberExpression",
-          object: idExp("debug", loc),
-          property: "info",
-          loc,
-        },
-        args: [numExp(1, loc), strExp("l", loc)],
-        loc,
-      }],
+function makeTamperBlock(loc: SourceLocation, rng: () => number, intensity: number): (Statement | LastStatement)[] {
+  if (intensity >= 0.85) {
+    return [{
+      type: "WhileStatement",
+      condition: boolExp(true, loc),
+      body: [],
       loc,
-    });
+    }];
+  }
+  if (intensity >= 0.6) {
+    return [{
+      type: "FunctionCallStatement",
+      call: {
+        type: "CallExpression",
+        callee: idExp("error", loc),
+        args: [strExp("tamper", loc), numExp(0, loc)],
+        loc,
+      },
+      loc,
+    }];
+  }
+  return [{
+    type: "AssignmentStatement",
+    vars: [{ type: "Identifier", name: `_ad${Math.floor(rng() * 100000)}`, loc }],
+    values: [boolExp(false, loc)],
+    loc,
+  }];
+}
+
+function localStmt(name: string, value: Expression | undefined, loc: SourceLocation): LocalStatement {
+  return {
+    type: "LocalStatement",
+    vars: [{ name, type: undefined }],
+    values: value !== undefined ? [value] : undefined,
+    loc,
+  };
+}
+
+function callExp(callee: Expression, args: Expression[], loc: SourceLocation): CallExpression {
+  return { type: "CallExpression", callee, args, loc };
+}
+
+function memberExp(object: Expression, property: string, loc: SourceLocation): MemberExpression {
+  return { type: "MemberExpression", object, property, loc };
+}
+
+function ifStmt(cond: Expression, thenBody: (Statement | LastStatement)[], loc: SourceLocation): IfStatement {
+  return {
+    type: "IfStatement",
+    condition: cond,
+    thenBody,
+    elseifClauses: [],
+    loc,
+  };
+}
+
+function typeCallExp(arg: Expression, loc: SourceLocation): CallExpression {
+  return callExp(idExp("type", loc), [arg], loc);
+}
+
+function pcallMemberExp(obj: Expression, prop: string, loc: SourceLocation): CallExpression {
+  return callExp(idExp("pcall", loc), [memberExp(obj, prop, loc)], loc);
+}
+
+function pcallCallExp(callee: Expression, args: Expression[], loc: SourceLocation): CallExpression {
+  return callExp(idExp("pcall", loc), [callExp(callee, args, loc)], loc);
+}
+
+function makeHookDetection(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const varName = `_ad${Math.floor(rng() * 100000)}`;
+  const stmts: Statement[] = [
+    localStmt(varName, pcallMemberExp(idExp("debug", loc), "gethook", loc), loc),
+  ];
+
+  if (intensity >= 0.5) {
+    const notNil = binExp(typeCallExp(idExp(varName, loc), loc), "~=", nilExp(loc), loc);
+    const truthy = idExp(varName, loc);
+    stmts.push(ifStmt(binExp(notNil, "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
   }
 
-  if (rng() < intensity) {
-    const checkVar = `_ad${Math.floor(rng() * 100000)}`;
-    stmts.push({
-      type: "LocalStatement",
-      vars: [{ name: checkVar, type: undefined }],
-      values: [{
-        type: "CallExpression",
-        callee: idExp("pcall", loc),
-        args: [{
-          type: "FunctionExpression",
-          params: [],
-          body: [
-            {
-              type: "AssignmentStatement",
-              vars: [{ type: "Identifier", name: guardVar, loc } as any],
-              values: [{
-                type: "CallExpression",
-                callee: {
-                  type: "MemberExpression",
-                  object: idExp("debug", loc),
-                  property: "info",
-                  loc,
-                },
-                args: [numExp(2, loc), strExp("s", loc)],
-                loc,
-              }],
-              loc,
-            },
-          ],
-          loc,
-        }],
-        loc,
-      }],
-      loc,
-    });
+  return stmts;
+}
+
+function makeCallDepthCheck(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const varName = `_ad${Math.floor(rng() * 100000)}`;
+  const depthArg = mbaInt(5, rng, loc);
+  const stmts: Statement[] = [
+    localStmt(varName, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [depthArg, strExp("n", loc)], loc), loc),
+  ];
+
+  if (intensity >= 0.55) {
+    const notNil = binExp(typeCallExp(idExp(varName, loc), loc), "~=", nilExp(loc), loc);
+    const truthy = idExp(varName, loc);
+    stmts.push(ifStmt(binExp(notNil, "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
   }
 
-  if (rng() < intensity * 0.3) {
-    const envCheckVar = `_ad${Math.floor(rng() * 100000)}`;
-    stmts.push({
-      type: "LocalStatement",
-      vars: [{ name: envCheckVar, type: undefined }],
-      values: [{
-        type: "CallExpression",
-        callee: idExp("rawget", loc),
-        args: [idExp("_G", loc), strExp("debug", loc)],
-        loc,
-      }],
-      loc,
-    });
+  return stmts;
+}
+
+function makeStackFrameCheck(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const varName1 = `_ad${Math.floor(rng() * 100000)}`;
+  const varName2 = `_ad${Math.floor(rng() * 100000)}`;
+  const frame1Arg = mbaInt(1, rng, loc);
+  const frame2Arg = mbaInt(2, rng, loc);
+  const stmts: Statement[] = [
+    localStmt(varName1, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame1Arg, strExp("n", loc)], loc), loc),
+    localStmt(varName2, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame2Arg, strExp("n", loc)], loc), loc),
+  ];
+
+  if (intensity >= 0.6) {
+    const check = binExp(idExp(varName1, loc), "==", idExp(varName2, loc), loc);
+    stmts.push(ifStmt(check, makeTamperBlock(loc, rng, intensity), loc));
+  }
+
+  return stmts;
+}
+
+function makeEnvironmentLock(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const envVar = `_ad${Math.floor(rng() * 100000)}`;
+  const stmts: Statement[] = [
+    localStmt(envVar, callExp(idExp("rawget", loc), [idExp("_G", loc), strExp("_G", loc)], loc), loc),
+  ];
+
+  if (intensity >= 0.4) {
+    const tampered = binExp(idExp(envVar, loc), "~=", idExp("_G", loc), loc);
+    stmts.push(ifStmt(tampered, makeTamperBlock(loc, rng, intensity), loc));
   }
 
   return stmts;
@@ -120,13 +226,32 @@ export function injectAntiDebug(ast: Chunk, options: AntiDebugInjectorOptions = 
   const seed = options.seed ?? 0;
   const rng = createRng(seed);
   const intensity = Math.min(1, Math.max(0, options.intensity ?? 0.4));
+  const useDebug = options.useDebugLibrary !== false;
+  const crashOnDetect = options.crashOnDetection !== false;
 
-  const loc = ast.body[0]?.loc ?? { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };
+  const adjustedIntensity = crashOnDetect ? intensity : Math.min(intensity, 0.49);
 
-  const antiDebugStmts = injectAntiDebugStatements(loc, rng, intensity);
+  const loc = ast.body[0]?.loc ?? defaultLoc;
+  const stmts: Statement[] = [];
+
+  if (useDebug && options.hookCheck !== false && rng() < intensity) {
+    stmts.push(...makeHookDetection(loc, rng, adjustedIntensity));
+  }
+
+  if (useDebug && options.callDepthCheck !== false && rng() < intensity) {
+    stmts.push(...makeCallDepthCheck(loc, rng, adjustedIntensity));
+  }
+
+  if (useDebug && options.stackFrameCheck !== false && rng() < intensity) {
+    stmts.push(...makeStackFrameCheck(loc, rng, adjustedIntensity));
+  }
+
+  if (options.environmentLock !== false && rng() < intensity) {
+    stmts.push(...makeEnvironmentLock(loc, rng, adjustedIntensity));
+  }
 
   return {
     ...ast,
-    body: [...antiDebugStmts, ...ast.body],
+    body: [...stmts, ...ast.body],
   };
 }
