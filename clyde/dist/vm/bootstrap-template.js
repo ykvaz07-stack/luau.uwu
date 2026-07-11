@@ -132,7 +132,7 @@ export function generateBootstrap(config) {
     {
         const builtins = [
             [nByte, 'string.byte'], [nGsub, 'string.gsub'], [nSub, 'string.sub'],
-            [nChar, 'string.char'], [nLoad, '(rawget(_G,"loadstring")or rawget(_G,"load"))'], [nAssert, 'assert'],
+            [nChar, 'string.char'], [nLoad, '(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="function" and getgenv().load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)'], [nAssert, 'assert'],
             [nType, 'type'], [nBxor, 'bit32.bxor'], [nPcall, 'pcall'],
             [nTconcat, 'table.concat'], [nBand, 'bit32.band'], [nUnpack, 'table.unpack'],
         ];
