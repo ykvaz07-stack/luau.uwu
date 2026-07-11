@@ -6,7 +6,7 @@ import {
   encodeStrings,
   scrambleControlFlow,
   printChunk,
-} from "../../../../../clyde/dist/index.js";
+} from "../../../../../../clyde/dist/index.js";
 
 export async function GET(
   request: Request,
