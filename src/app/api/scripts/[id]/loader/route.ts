@@ -3,9 +3,8 @@ import {
   lex,
   parse,
   obfuscate,
-  encodeStrings,
-  scrambleControlFlow,
-  printChunk,
+  regCompile,
+  generateRegVM,
 } from "../../../../../../clyde/dist/index.js";
 
 export async function GET(
@@ -21,7 +20,7 @@ export async function GET(
 
   const lua = String.raw`
 --[[
-  luau.uwu — protected
+  luau.uwu — virtualized protected loader
   /\_/\
  ( ^.^ )
   > ^ <
@@ -30,13 +29,11 @@ export async function GET(
 ${keyParam ? `script_key = "${keyParam}"` : ""}
 
 local function getHwid()
-  -- Method 1: gethwid() — many executors provide this directly
   local ok, result = pcall(gethwid)
   if ok and type(result) == "string" and #result > 0 then
     return result
   end
 
-  -- Method 2: syn.crypt.generate / crypt.generate / syn_crypt_generate
   ok, result = pcall(function()
     if syn and syn.crypt and syn.crypt.generate then
       return syn.crypt.generate("hwid")
@@ -50,7 +47,6 @@ local function getHwid()
     return result
   end
 
-  -- Method 3: syn.crypt.custom.hash — used by some Synapse-based executors
   ok, result = pcall(function()
     if syn and syn.crypt and syn.crypt.custom and syn.crypt.custom.hash then
       return syn.crypt.custom.hash("hwid")
@@ -60,9 +56,6 @@ local function getHwid()
     return result
   end
 
-  -- Method 4: Executor HTTP request to echo-headers (syn.request / http_request / request)
-  -- This is the ONLY way to capture fingerprint headers since executors
-  -- inject them into their own HTTP stack, NOT into game:HttpGet
   ok, result = pcall(function()
     local req = (syn and syn.request) or http_request or request or (http and http.request)
     if not req then return nil end
@@ -88,7 +81,6 @@ local function getHwid()
     return result
   end
 
-  -- Method 5: game:HttpGet echo-headers (fallback — works on some executors that patch Roblox's HTTP)
   ok, result = pcall(function()
     local echoRes = game:HttpGet("${domain}/api/echo-headers")
     local decoded = game:GetService("HttpService"):JSONDecode(echoRes)
@@ -106,7 +98,6 @@ local function getHwid()
     return result
   end
 
-  -- Method 6: RbxAnalyticsService:GetClientId() — last resort, not a true HWID
   ok, result = pcall(function()
     return game:GetService("RbxAnalyticsService"):GetClientId()
   end)
@@ -128,7 +119,7 @@ end
 
 local key = script_key or getgenv().script_key
 if type(key) ~= "string" or #key < 5 then
-  kick("[luau.uwu] No valid key found. Set script_key = 'YOUR_KEY' at the top of your script.")
+  kick("[luau.uwu] No valid key found.")
   return
 end
 
@@ -164,13 +155,21 @@ if not success then
 end
 `;
 
-  // Apply obfuscation
+  // Virtualization Pipeline
   const { tokens } = lex(lua);
   let ast = parse(tokens);
-  ast = encodeStrings(ast, { enabled: true });
-  ast = scrambleControlFlow(ast, { enabled: true });
-  const obfuscated = obfuscate(ast, { renameLocals: true, preserveGlobals: false });
-  const finalLua = printChunk(obfuscated);
+  
+  // 1. Basic obfuscation (renaming)
+  const obfuscatedAst = obfuscate(ast, { renameLocals: true, preserveGlobals: false });
+  
+  // 2. Compile to Bytecode
+  const chunk = regCompile(obfuscatedAst);
+  
+  // 3. Generate Virtualized Bytecode (the "VM runner")
+  const finalLua = generateRegVM(chunk, {
+    level: "maximum",
+    executorGlobals: true,
+  });
 
   return new NextResponse(finalLua, {
     headers: {
