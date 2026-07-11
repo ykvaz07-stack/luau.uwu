@@ -58,14 +58,23 @@ export default function ScriptsPage() {
       return;
     }
 
-    const [scriptsRes, projectsRes] = await Promise.all([
-      supabase
-        .from("scripts")
-        .select("*, projects(name)")
-        .order("created_at", { ascending: false }),
+    // First resolve auth to get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const [projectsRes, scriptsRes] = await Promise.all([
       supabase
         .from("projects")
         .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("scripts")
+        .select("*, projects!inner(name)")
+        .eq("projects.user_id", user.id)
         .order("created_at", { ascending: false }),
     ]);
 
@@ -669,6 +678,7 @@ export default function ScriptsPage() {
                   className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                 />
               </div>
+              <div className="flex gap-3 mt-2">
                 <button
                   onClick={() => setShowEditModal(null)}
                   className="flex-1 h-10 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"

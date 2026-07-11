@@ -934,18 +934,18 @@ function wrapCustomCipher(source: string): string {
   const bootVariant = Math.floor(rng() * 3);
   if (bootVariant === 0) {
 
-    lines.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-    lines.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+    lines.push(`local ${vSc}=string.char`);
+    lines.push(`local ${vSb}=string.byte`);
   } else if (bootVariant === 1) {
 
     const _mt = randomName(2);
-    lines.push(`local ${_mt}=("")[("\\114\\101\\112")]`);
-    lines.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-    lines.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+    lines.push(`local ${_mt}=string.rep`);
+    lines.push(`local ${vSc}=string.char`);
+    lines.push(`local ${vSb}=string.byte`);
   } else {
 
-    lines.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
-    lines.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
+    lines.push(`local ${vSb}=string.byte`);
+    lines.push(`local ${vSc}=string.char`);
   }
   maybeJunk(lines);
 
@@ -1312,16 +1312,16 @@ function wrapNestedVM(source: string): string {
 
   const bootV = Math.floor(rng() * 3);
   if (bootV === 0) {
-    L.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-    L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+    L.push(`local ${vSc}=string.char`);
+    L.push(`local ${vSb}=string.byte`);
   } else if (bootV === 1) {
-    L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
-    L.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
+    L.push(`local ${vSb}=string.byte`);
+    L.push(`local ${vSc}=string.char`);
   } else {
     const mt = nn(2);
-    L.push(`local ${mt}=("")[("\\115\\117\\98")]`);
-    L.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-    L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+    L.push(`local ${mt}=string.sub`);
+    L.push(`local ${vSc}=string.char`);
+    L.push(`local ${vSb}=string.byte`);
   }
   L.push(emitHoneypot());
 
@@ -1562,19 +1562,19 @@ function wrapStubVM(source: string): string {
 
   if (bootVariant === 0) {
 
-    L.push(`local ${a_sc}=("")[("${encStr('char')}")]`);
-    L.push(`local ${a_sb}=("")[("${encStr('byte')}")]`);
+    L.push(`local ${a_sc}=string.char`);
+    L.push(`local ${a_sb}=string.byte`);
   } else if (bootVariant === 2) {
 
     const pf1 = n(3), pf2 = n(3);
-    L.push(`local ${pf1},${a_sc}=pcall(function() return ("")[("${encStr('char')}")]end)`);
-    L.push(`local ${pf2},${a_sb}=pcall(function() return ("")[("${encStr('byte')}")]end)`);
+    L.push(`local ${pf1},${a_sc}=pcall(function() return string.charend)`);
+    L.push(`local ${pf2},${a_sb}=pcall(function() return string.byteend)`);
   } else {
 
     const tv = n(3);
     L.push(`local ${tv}={"\\0"}`);
-    L.push(`local ${a_sc}=${tv}[1][("${encStr('char')}")]`);
-    L.push(`local ${a_sb}=${tv}[1][("${encStr('byte')}")]`);
+    L.push(`local ${a_sc}=string.char`);
+    L.push(`local ${a_sb}=string.byte`);
   }
 
   L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
@@ -2081,7 +2081,7 @@ function buildEnvSetup(
     return { codes: Array.from(s).map(c => (c.charCodeAt(0) + key) % 256).join(","), key };
   };
 
-  lines.push(`local ${bSC}=(${luaEsc("")})[${luaEsc("char")}]`);
+  lines.push(`local ${bSC}=string.char`);
 
   const _ldFunc = randomName(3);
   const _lsChars = Array.from("loadstring").map(c => c.charCodeAt(0));

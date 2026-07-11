@@ -40,10 +40,13 @@ function getPlan(): Promise<string> {
   planPromise = (async () => {
     const supabase = createClient();
     if (!supabase) return "free";
+    // Resolve auth first so we can filter by current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return "free";
     const { data } = await supabase
       .from("subscriptions")
       .select("plan")
-      .limit(1)
+      .eq("user_id", user.id)
       .maybeSingle();
     const plan = (data?.plan as string) || "free";
     cachedPlan = plan;

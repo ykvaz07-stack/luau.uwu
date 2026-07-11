@@ -37,13 +37,28 @@ export default function KeysPage() {
       return;
     }
 
-    const [keysRes, scriptsRes] = await Promise.all([
-      fetch("/api/keys").then((r) => r.json()),
-      supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const { data: userProjects } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", user.id);
+    const projectIds = (userProjects ?? []).map((p: { id: string }) => p.id);
+
+    let scriptsRes = { data: [] };
+    if (projectIds.length > 0) {
+      scriptsRes = await supabase
         .from("scripts")
         .select("*")
-        .order("created_at", { ascending: false }),
-    ]);
+        .in("project_id", projectIds)
+        .order("created_at", { ascending: false });
+    }
+
+    const keysRes = await fetch("/api/keys").then((r) => r.json());
 
     setKeys(keysRes.keys ?? []);
     setScripts(scriptsRes.data ?? []);

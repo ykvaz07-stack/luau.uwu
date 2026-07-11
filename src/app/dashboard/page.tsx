@@ -38,11 +38,30 @@ export default function DashboardPage() {
       }
 
       try {
-        const [projectsRes, scriptsRes, keysRes] = await Promise.all([
-          supabase.from("projects").select("id", { count: "exact", head: true }),
-          supabase.from("scripts").select("id", { count: "exact", head: true }),
-          supabase.from("keys").select("id, banned, auth_expire"),
-        ]);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        const { data: userProjects } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("user_id", user.id);
+        const projectIds = (userProjects ?? []).map((p: { id: string }) => p.id);
+
+        let projectsRes = { count: userProjects?.length ?? 0 };
+        let scriptsRes = { count: 0 };
+        let keysRes = { data: [] };
+
+        if (projectIds.length > 0) {
+          const [sRes, kRes] = await Promise.all([
+            supabase.from("scripts").select("id", { count: "exact", head: true }).in("project_id", projectIds),
+            supabase.from("keys").select("id, banned, auth_expire").in("project_id", projectIds),
+          ]);
+          scriptsRes = sRes;
+          keysRes = kRes;
+        }
 
         const totalKeys = keysRes.data?.length ?? 0;
         const activeKeys =
