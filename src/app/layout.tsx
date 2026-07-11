@@ -13,10 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "luau.uwu - Script Protection & Key System",
+  title: "luau.uwu - Script Protection & Key System for Roblox",
   description:
-    "Protect your Roblox scripts with VM obfuscation, manage keys, and control access. Built for Roblox developers.",
+    "Protect your Roblox scripts with VM obfuscation, manage license keys with HWID locking, and control access. Built for Roblox developers.",
+  keywords: ["roblox", "luau", "obfuscation", "key system", "script protection", "hwid"],
   icons: { icon: "/favicon.ico" },
+  openGraph: {
+    title: "luau.uwu - Script Protection & Key System",
+    description: "Professional VM obfuscation, key management, and script protection for Roblox developers.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -43,13 +49,13 @@ export default function RootLayout({
 }
 
 function StarsBackground() {
-  const stars = Array.from({ length: 15 }, (_, i) => ({
+  const stars = Array.from({ length: 30 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     top: Math.random() * 100,
-    size: Math.random() * 2 + 1,
-    duration: 2 + Math.random() * 4,
-    delay: Math.random() * 4,
+    size: Math.random() * 2.5 + 0.5,
+    duration: 3 + Math.random() * 5,
+    delay: Math.random() * 6,
   }));
 
   return (

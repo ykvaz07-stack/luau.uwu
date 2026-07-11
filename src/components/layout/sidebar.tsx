@@ -31,16 +31,44 @@ const navItems = [
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-let cachedPlan: string | null = null;
-let planPromise: Promise<string> | null = null;
+const PLAN_CACHE_KEY = "luauuwu_plan";
+const PLAN_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+interface PlanCache {
+  plan: string;
+  timestamp: number;
+}
+
+function getCachedPlan(): string | null {
+  try {
+    const raw = localStorage.getItem(PLAN_CACHE_KEY);
+    if (!raw) return null;
+    const cached: PlanCache = JSON.parse(raw);
+    if (Date.now() - cached.timestamp > PLAN_CACHE_DURATION) {
+      localStorage.removeItem(PLAN_CACHE_KEY);
+      return null;
+    }
+    return cached.plan;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPlan(plan: string) {
+  try {
+    const data: PlanCache = { plan, timestamp: Date.now() };
+    localStorage.setItem(PLAN_CACHE_KEY, JSON.stringify(data));
+  } catch {}
+}
 
 function getPlan(): Promise<string> {
-  if (cachedPlan) return Promise.resolve(cachedPlan);
-  if (planPromise) return planPromise;
-  planPromise = (async () => {
-    const supabase = createClient();
-    if (!supabase) return "free";
-    // Resolve auth first so we can filter by current user
+  // Check local storage first for instant load
+  const cached = getCachedPlan();
+  if (cached) return Promise.resolve(cached);
+  
+  const supabase = createClient();
+  if (!supabase) return Promise.resolve("free");
+  return (async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return "free";
     const { data } = await supabase
@@ -49,20 +77,30 @@ function getPlan(): Promise<string> {
       .eq("user_id", user.id)
       .maybeSingle();
     const plan = (data?.plan as string) || "free";
-    cachedPlan = plan;
+    setCachedPlan(plan);
     return plan;
   })();
-  return planPromise;
 }
+
+// Preload plan from localStorage immediately
+let initialPlan = "free";
+try {
+  const cached = getCachedPlan();
+  if (cached) initialPlan = cached;
+} catch {}
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [userPlan, setUserPlan] = useState("free");
+  const [userPlan, setUserPlan] = useState(initialPlan);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    getPlan().then(setUserPlan);
+    // Fetch latest plan in background, update cache
+    getPlan().then((plan) => {
+      setUserPlan(plan);
+      setCachedPlan(plan);
+    });
     const supabase = createClient();
     if (!supabase) return;
     supabase.auth.getUser().then((result: { data: { user: { email?: string } | null } }) => {

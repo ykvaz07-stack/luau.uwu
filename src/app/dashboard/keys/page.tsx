@@ -47,7 +47,7 @@ export default function KeysPage() {
       .from("projects")
       .select("id")
       .eq("user_id", user.id);
-    const projectIds = (userProjects ?? []).map((p: { id: string }) => p.id);
+    const projectIds = ((userProjects ?? []) as Array<{ id: string }>).map(p => p.id);
 
     let scriptsRes = { data: [] };
     if (projectIds.length > 0) {
