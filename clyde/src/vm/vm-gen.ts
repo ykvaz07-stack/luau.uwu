@@ -2011,6 +2011,26 @@ const EXECUTOR_GLOBALS = [
   "getnamecallmethod", "setnamecallmethod",
   "isreadonly", "setreadonly", "identifyexecutor",
   "request", "syn", "Drawing", "crypt", "base64", "http",
+
+  // HWID & identification functions
+  "gethwid", "syn_crypt_generate", "syn_crypt_custom_hash",
+  "krnl", "krnl_hwid", "krnl-hwid",
+  "scriptware", "sw-fingerprint", "sw_fingerprint",
+  "sentinel", "sentinel-fingerprint", "sentinelfingerprint",
+  "protosmasher", "proto_user_identifier", "proto-user-identifier",
+  "electron", "exploit_guid", "exploit-guid",
+
+  // Extended executor APIs
+  "getfenv", "setfenv", "setidentity", "getidentity",
+  "getscriptclosure", "getscriptfunction", "setscriptidentity",
+  "getthreadidentity", "setthreadidentity", "getthreadcontext", "setthreadcontext",
+  "isreadonly", "setreadonly", "iswriteable", "setwriteable",
+  "newinstance", "cloneinstance", "gethiddenproperty", "sethiddenproperty",
+  "isscriptable", "setscriptable", "isprotected", "setprotected",
+  "setclipboard", "toclipboard", "getclipboard",
+  "gethui",
+  "getcustomasset", "getexecutorname", "identifyexecutor",
+  "getthreadcontext", "setthreadcontext",
 ];
 
 function luaEsc(s: string): string {

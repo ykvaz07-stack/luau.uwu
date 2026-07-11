@@ -3,8 +3,8 @@ import {
   lex,
   parse,
   obfuscate,
-  regCompile,
-  generateRegVM,
+  encodeStrings,
+  printChunk,
 } from "../../../../../../clyde/dist/index.js";
 
 export async function GET(
@@ -20,13 +20,13 @@ export async function GET(
 
   const lua = String.raw`
 --[[
-  luau.uwu — virtualized protected loader
+  luau.uwu — protected loader
   /\_/\
  ( ^.^ )
   > ^ <
 ]]
 
-${keyParam ? `script_key = "${keyParam}"` : ""}
+${keyParam ? `local script_key = "${keyParam}"` : ""}
 
 local function getHwid()
   local ok, result = pcall(gethwid)
@@ -117,7 +117,7 @@ local function kick(msg)
   end
 end
 
-local key = script_key or getgenv().script_key or ""
+local key = (script_key or getgenv().script_key or "")
 
 local hwid = getHwid()
 local loadUrl = "${domain}/api/scripts/${id}/load"
@@ -158,21 +158,22 @@ if not success then
 end
 `;
 
-  // Virtualization Pipeline
+  // Light obfuscation pipeline (NO VM - loads must run in executor native environment)
   const { tokens } = lex(lua);
   let ast = parse(tokens);
   
-  // 1. Basic obfuscation (renaming)
-  const obfuscatedAst = obfuscate(ast, { renameLocals: true, preserveGlobals: false });
+  // 1. Rename locals to hide loader logic
+  ast = obfuscate(ast, { renameLocals: true, preserveGlobals: true });
   
-  // 2. Compile to Bytecode
-  const chunk = regCompile(obfuscatedAst);
-  
-  // 3. Generate Virtualized Bytecode (the "VM runner")
-  const finalLua = generateRegVM(chunk, {
-    level: "maximum",
-    executorGlobals: true,
+  // 2. Encode string literals to hide URLs and messages
+  ast = encodeStrings(ast, {
+    enabled: true,
+    useFragmentation: true,
+    level: 2,
   });
+  
+  // 3. Print back to Lua - returns plain obfuscated code, NOT VM-wrapped
+  const finalLua = printChunk(ast);
 
   return new NextResponse(finalLua, {
     headers: {
