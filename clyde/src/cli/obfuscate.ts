@@ -25,6 +25,48 @@ import type { VMGenLevel } from "../vm/vm-gen.js";
 import type { ProtectionLevel } from "../obfuscator/Pipeline.js";
 
 const args = process.argv.slice(2);
+
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`uwu.dll obfuscator - usage:
+  node obfuscate.js [options] <file.lua>
+
+Obfuscation levels (no vm):
+  --scramble          Control flow scrambling + rename locals
+  --advanced          High level (all passes, no VM)
+  --production        Same as --advanced
+  --max               Max level (all passes, no VM)
+  --elite             Same as --max
+
+VM virtualization:
+  --vm                Enable VM virtualization (compile to custom bytecode)
+  --vm-layers <1-3>   VM nesting depth (1=single, 2=dual, 3=triple)
+  --triple            Shortcut for --vm-layers 3
+  --vm-debug          Debug mode (no VM encryption)
+  --vm-level <level>  debug | normal | max
+
+Pipeline passes:
+  --encode-strings    Encode string literals
+  --no-encode         Skip string encoding
+  --no-rename         Skip variable renaming
+  --junk              Inject dead code
+  --optimize          Apply constant folding + strength reduction
+  --enc-func          Honor --@enc-func markers in source
+  --no-vm-markers     Honor --@no-vm markers in source
+
+Output:
+  -o <file>           Write to file instead of stdout
+  --minify            Minify output (no VM only)
+  --one-line          One-line output (no VM only)
+  --unicode           Use unicode confusable variable names
+
+Other:
+  --seed <n>          RNG seed for reproducible output
+  --target <ver>      luau (default) | lua51 | lua52
+  --no-compress       Disable VM blob compression
+  --no-preserve       Don't preserve global identifiers
+`);
+  process.exit(0);
+}
 const noRename = args.includes("--no-rename");
 const noPreserve = args.includes("--no-preserve");
 const encodeStringsOpt = args.includes("--encode-strings");
@@ -53,10 +95,13 @@ const seedArg = args.findIndex((a) => a === "--seed");
 const seed = seedArg >= 0 ? parseInt(args[seedArg + 1], 10) : undefined;
 const outIndex = args.findIndex((a) => a === "-o" || a === "--output");
 const outFile = outIndex >= 0 ? args[outIndex + 1] : null;
+const layersIndex = args.findIndex((a) => a === "--vm-layers");
+const layers = layersIndex >= 0 ? parseInt(args[layersIndex + 1], 10) : undefined;
 const skipIndices = new Set<number>();
 if (seedArg >= 0) skipIndices.add(seedArg + 1);
 if (targetIndex >= 0) skipIndices.add(targetIndex + 1);
 if (outIndex >= 0) skipIndices.add(outIndex + 1);
+if (layersIndex >= 0) skipIndices.add(layersIndex + 1);
 const fileArgs = args.filter((a, i) =>
   !a.startsWith("-") && !skipIndices.has(i)
 );
@@ -115,7 +160,14 @@ if (vmOpt) {
   if (vmDebug || args.includes("--no-vm-encode")) level = "debug";
   if (maxOpt || advancedOpt || productionOpt || eliteOpt) level = "max";
 
-  const nesting = tripleOpt ? 2 : 0;
+  let nesting = 0;
+  if (layers !== undefined) {
+    nesting = Math.max(0, Math.min(2, layers - 1));
+  } else if (tripleOpt) {
+    nesting = 2;
+  } else if (maxOpt || eliteOpt) {
+    nesting = 1;
+  }
   const splitTraces = maxOpt || eliteOpt;
   output = generateVM(chunk, {
     level,
