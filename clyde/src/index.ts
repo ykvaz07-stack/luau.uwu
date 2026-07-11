@@ -1,7 +1,7 @@
 export { lex, Lexer, type LexResult } from "./lexer/Lexer.js";
 export { parse, parseWithErrors, Parser, type ParseResult } from "./parser/Parser.js";
 export {
-  obfuscate, printChunk, printExpression,
+  obfuscate, printChunk, printChunkOneLine, printExpression,
   encodeStrings, scrambleControlFlow,
   obfuscateNumbers, flattenControlFlow,
   injectDeadCodePass, obfuscateFunctionCalls,
@@ -21,6 +21,9 @@ export type { Chunk, Statement, Expression } from "./ast/types.js";
 export { compile } from "./vm/Compiler.js";
 export type { BytecodeChunk, Constant } from "./vm/bytecode.js";
 export { generateVM, type VMGenOptions, type VMGenLevel } from "./vm/vm-gen.js";
+export { generateRegVM, type RegVMGenOptions } from "./vm/reg-vm-gen.js";
+export { regCompile } from "./vm/RegCompiler.js";
+export type { RegBytecodeChunk } from "./vm/bytecode.js";
 export { compilePhantom, generatePhantomVM, runPipelineWithPhantomVM } from "./obfuscator/index.js";
 export { validate, type ValidationResult, type ValidationError } from "./compiler/LuauCompiler.js";
 
