@@ -1577,8 +1577,7 @@ const EXECUTOR_GLOBALS = [
     "isreadonly", "setreadonly", "iswriteable", "setwriteable",
     "newinstance", "cloneinstance", "gethiddenproperty", "sethiddenproperty",
     "isscriptable", "setscriptable", "isprotected", "setprotected",
-    "setclipboard", "toclipboard", "getclipboard",
-    "gethui", "gethwidgethwid",
+    "setclipboard", "toclipboard", "getclipboard", "gethui",
     "getcustomasset", "getexecutorname", "identifyexecutor",
     "getthreadcontext", "setthreadcontext",
 ];
