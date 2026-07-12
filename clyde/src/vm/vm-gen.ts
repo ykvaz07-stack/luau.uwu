@@ -950,7 +950,7 @@ function wrapCustomCipher(source: string): string {
   maybeJunk(lines);
 
   const envVariant = 0;
-  lines.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or _G`);
+  lines.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or _G`);
 
   const builtinLines: string[] = [
     `local ${vTc}=${vEnv}[${vSc}(116,97,98,108,101)][${vSc}(99,111,110,99,97,116)]`,
@@ -1325,7 +1325,7 @@ function wrapNestedVM(source: string): string {
   }
   L.push(emitHoneypot());
 
-  L.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or _G`);
+  L.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or _G`);
   const builtins = [
     `local ${vTc}=${vEnv}[${vSc}(${encSC('table')})][${vSc}(${encSC('concat')})]`,
     `local ${vLd}=${vEnv}[${vSc}(${encSC('loadstring')})] or ${vEnv}[${vSc}(${encSC('load')})]`,
@@ -1577,7 +1577,7 @@ function wrapStubVM(source: string): string {
     L.push(`local ${a_sb}=string.byte`);
   }
 
-  L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
+  L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
   L.push(`if not ${pvv} then ${efv}=_G end`);
 
   L.push(`local ${b32v}=${efv}[${a_sc}(${encSC('bit32')})]`);
@@ -2070,7 +2070,7 @@ function buildEnvSetup(
   const env = n.env;
 
   if (level === "debug") {
-    let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getfenv)=="function" and getfenv(0))or _G\n`;
+    let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getgenv)=="table" and getgenv)or(type(getfenv)=="function" and getfenv(0))or _G\n`;
     const entries = getGlobalsForTarget(targetVersion).map(g => `${g}=${g}`).join(",");
     code += `local ${env}=setmetatable({${entries}},{__index=function(_,k) local ok,v=pcall(function() return ${genv}[k] end);if ok then return v end;return nil end})\n`;
     if (includeExecutor) {
