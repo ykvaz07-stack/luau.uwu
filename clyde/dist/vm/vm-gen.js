@@ -888,22 +888,22 @@ function wrapCustomCipher(source) {
     const lines = [];
     const bootVariant = Math.floor(rng() * 3);
     if (bootVariant === 0) {
-        lines.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-        lines.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+        lines.push(`local ${vSc}=string.char`);
+        lines.push(`local ${vSb}=string.byte`);
     }
     else if (bootVariant === 1) {
         const _mt = randomName(2);
-        lines.push(`local ${_mt}=("")[("\\114\\101\\112")]`);
-        lines.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-        lines.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+        lines.push(`local ${_mt}=string.rep`);
+        lines.push(`local ${vSc}=string.char`);
+        lines.push(`local ${vSb}=string.byte`);
     }
     else {
-        lines.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
-        lines.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
+        lines.push(`local ${vSb}=string.byte`);
+        lines.push(`local ${vSc}=string.char`);
     }
     maybeJunk(lines);
     const envVariant = 0;
-    lines.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or _G`);
+    lines.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or _G`);
     const builtinLines = [
         `local ${vTc}=${vEnv}[${vSc}(116,97,98,108,101)][${vSc}(99,111,110,99,97,116)]`,
         `local ${vLd}=${vEnv}[${vSc}(108,111,97,100,115,116,114,105,110,103)] or ${vEnv}[${vSc}(108,111,97,100)]`,
@@ -1248,21 +1248,21 @@ function wrapNestedVM(source) {
     const L = [];
     const bootV = Math.floor(rng() * 3);
     if (bootV === 0) {
-        L.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-        L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+        L.push(`local ${vSc}=string.char`);
+        L.push(`local ${vSb}=string.byte`);
     }
     else if (bootV === 1) {
-        L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
-        L.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
+        L.push(`local ${vSb}=string.byte`);
+        L.push(`local ${vSc}=string.char`);
     }
     else {
         const mt = nn(2);
-        L.push(`local ${mt}=("")[("\\115\\117\\98")]`);
-        L.push(`local ${vSc}=("")[("\\99\\104\\97\\114")]`);
-        L.push(`local ${vSb}=("")[("\\98\\121\\116\\101")]`);
+        L.push(`local ${mt}=string.sub`);
+        L.push(`local ${vSc}=string.char`);
+        L.push(`local ${vSb}=string.byte`);
     }
     L.push(emitHoneypot());
-    L.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or _G`);
+    L.push(`local ${vEnv}=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or _G`);
     const builtins = [
         `local ${vTc}=${vEnv}[${vSc}(${encSC('table')})][${vSc}(${encSC('concat')})]`,
         `local ${vLd}=${vEnv}[${vSc}(${encSC('loadstring')})] or ${vEnv}[${vSc}(${encSC('load')})]`,
@@ -1497,21 +1497,21 @@ function wrapStubVM(source) {
     const encSC = (s) => Array.from(s).map(c => c.charCodeAt(0)).join(',');
     const L = [];
     if (bootVariant === 0) {
-        L.push(`local ${a_sc}=("")[("${encStr('char')}")]`);
-        L.push(`local ${a_sb}=("")[("${encStr('byte')}")]`);
+        L.push(`local ${a_sc}=string.char`);
+        L.push(`local ${a_sb}=string.byte`);
     }
     else if (bootVariant === 2) {
         const pf1 = n(3), pf2 = n(3);
-        L.push(`local ${pf1},${a_sc}=pcall(function() return ("")[("${encStr('char')}")]end)`);
-        L.push(`local ${pf2},${a_sb}=pcall(function() return ("")[("${encStr('byte')}")]end)`);
+        L.push(`local ${pf1},${a_sc}=pcall(function() return string.charend)`);
+        L.push(`local ${pf2},${a_sb}=pcall(function() return string.byteend)`);
     }
     else {
         const tv = n(3);
         L.push(`local ${tv}={"\\0"}`);
-        L.push(`local ${a_sc}=${tv}[1][("${encStr('char')}")]`);
-        L.push(`local ${a_sb}=${tv}[1][("${encStr('byte')}")]`);
+        L.push(`local ${a_sc}=string.char`);
+        L.push(`local ${a_sb}=string.byte`);
     }
-    L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
+    L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
     L.push(`if not ${pvv} then ${efv}=_G end`);
     L.push(`local ${b32v}=${efv}[${a_sc}(${encSC('bit32')})]`);
     const b32Methods = [
@@ -1900,6 +1900,24 @@ const EXECUTOR_GLOBALS = [
     "getnamecallmethod", "setnamecallmethod",
     "isreadonly", "setreadonly", "identifyexecutor",
     "request", "syn", "Drawing", "crypt", "base64", "http",
+    // HWID & identification functions
+    "gethwid", "syn_crypt_generate", "syn_crypt_custom_hash",
+    "krnl", "krnl_hwid", "krnl-hwid",
+    "scriptware", "sw-fingerprint", "sw_fingerprint",
+    "sentinel", "sentinel-fingerprint", "sentinelfingerprint",
+    "protosmasher", "proto_user_identifier", "proto-user-identifier",
+    "electron", "exploit_guid", "exploit-guid",
+    // Extended executor APIs
+    "getfenv", "setfenv", "setidentity", "getidentity",
+    "getscriptclosure", "getscriptfunction", "setscriptidentity",
+    "getthreadidentity", "setthreadidentity", "getthreadcontext", "setthreadcontext",
+    "isreadonly", "setreadonly", "iswriteable", "setwriteable",
+    "newinstance", "cloneinstance", "gethiddenproperty", "sethiddenproperty",
+    "isscriptable", "setscriptable", "isprotected", "setprotected",
+    "setclipboard", "toclipboard", "getclipboard",
+    "gethui",
+    "getcustomasset", "getexecutorname", "identifyexecutor",
+    "getthreadcontext", "setthreadcontext",
 ];
 function luaEsc(s) {
     return '"' + Array.from(s).map(c => {
@@ -1934,7 +1952,7 @@ function buildEnvSetup(n, level, includeExecutor, targetVersion = "universal") {
     const genv = n.genv;
     const env = n.env;
     if (level === "debug") {
-        let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getfenv)=="function" and getfenv(0))or _G\n`;
+        let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getgenv)=="table" and getgenv)or(type(getfenv)=="function" and getfenv(0))or _G\n`;
         const entries = getGlobalsForTarget(targetVersion).map(g => `${g}=${g}`).join(",");
         code += `local ${env}=setmetatable({${entries}},{__index=function(_,k) local ok,v=pcall(function() return ${genv}[k] end);if ok then return v end;return nil end})\n`;
         if (includeExecutor) {
@@ -1961,7 +1979,7 @@ function buildEnvSetup(n, level, includeExecutor, targetVersion = "universal") {
         const key = 1 + Math.floor(rng() * 254);
         return { codes: Array.from(s).map(c => (c.charCodeAt(0) + key) % 256).join(","), key };
     };
-    lines.push(`local ${bSC}=(${luaEsc("")})[${luaEsc("char")}]`);
+    lines.push(`local ${bSC}=string.char`);
     const _ldFunc = randomName(3);
     const _lsChars = Array.from("loadstring").map(c => c.charCodeAt(0));
     const _ldChars = Array.from("load").map(c => c.charCodeAt(0));

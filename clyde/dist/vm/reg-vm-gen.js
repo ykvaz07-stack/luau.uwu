@@ -972,7 +972,7 @@ function buildBuiltinCaptures(ctx) {
     lines.push(`do`);
     lines.push(`local ${scVar}=("")[${luaEsc("char")}]`);
     const lsBoot = randomName(2);
-    lines.push(`local ${lsBoot}=loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="function" and getgenv().load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)`);
+    lines.push(`local ${lsBoot}=loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)`);
     // STATIC_ENVIRONMENT: capture environment without getfenv/setfenv, freeze it
     const envBootSrc = ctx.staticEnvironment
         ? `do local _G=(_G or {}); local _frozen={}; for _k,_v in pairs(_G) do _frozen[_k]=_v end; setmetatable(_G,{__index=_frozen,__newindex=function() error("STATIC_ENVIRONMENT: global write blocked",0) end}); return _G end`
@@ -1563,6 +1563,24 @@ const EXECUTOR_GLOBALS = [
     "consoleinput", "consoleprint", "consolesettitle",
     "run_on_actor", "runonactor",
     "getstack",
+    // HWID & identification functions
+    "gethwid", "syn_crypt_generate", "syn_crypt_custom_hash",
+    "krnl", "krnl_hwid", "krnl-hwid",
+    "scriptware", "sw-fingerprint", "sw_fingerprint",
+    "sentinel", "sentinel-fingerprint", "sentinelfingerprint",
+    "protosmasher", "proto_user_identifier", "proto-user-identifier",
+    "electron", "exploit_guid", "exploit-guid",
+    // Extended executor APIs
+    "getfenv", "setfenv", "setidentity", "getidentity",
+    "getscriptclosure", "getscriptfunction", "setscriptidentity",
+    "getthreadidentity", "setthreadidentity", "getthreadcontext", "setthreadcontext",
+    "isreadonly", "setreadonly", "iswriteable", "setwriteable",
+    "newinstance", "cloneinstance", "gethiddenproperty", "sethiddenproperty",
+    "isscriptable", "setscriptable", "isprotected", "setprotected",
+    "setclipboard", "toclipboard", "getclipboard",
+    "gethui", "gethwidgethwid",
+    "getcustomasset", "getexecutorname", "identifyexecutor",
+    "getthreadcontext", "setthreadcontext",
 ];
 function buildEnvSetup(ctx) {
     const n = ctx.names;
@@ -1587,7 +1605,7 @@ function buildEnvSetup(ctx) {
     };
     const dec = randomName(4);
     L.push(`local function ${dec}(_t) local _s="";for _i=1,#_t do _s=_s..string.char(${n.bBxor}(_t[_i],${n.bBand}(${envKey}+(_i-1)*${envStep},0xFF))) end;return _s end`);
-    L.push(`local ${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="function" and getgenv().load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`);
+    L.push(`local ${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`);
     L.push(`local ${n.env}=${n.bSetmeta}({},{[${dec}(${encS("__index")})]=function(_,k) local ok,v=${n.bPcall}(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`);
     const allGlobals = ctx.includeExecutor ? [...getGlobalsForTarget(ctx.targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(ctx.targetVersion)];
     for (let si = allGlobals.length - 1; si > 0; si--) {
@@ -1616,7 +1634,7 @@ function buildEnvFragments(ctx) {
     const dec = randomName(4);
     forwardDecls.push(dec, n.genv, n.env);
     fragments.push({ code: `${dec}=function(_t) local _s="";for _i=1,#_t do _s=_s..string.char(${n.bBxor}(_t[_i],${n.bBand}(${envKey}+(_i-1)*${envStep},0xFF))) end;return _s end`, layer: 0 });
-    fragments.push({ code: `${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="function" and getgenv().load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`, layer: 1 });
+    fragments.push({ code: `${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`, layer: 1 });
     fragments.push({ code: `${n.env}=${n.bSetmeta}({},{[${dec}(${encS("__index")})]=function(_,k) local ok,v=${n.bPcall}(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`, layer: 2 });
     const allGlobals = ctx.includeExecutor ? [...getGlobalsForTarget(ctx.targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(ctx.targetVersion)];
     for (let si = allGlobals.length - 1; si > 0; si--) {
