@@ -95,13 +95,14 @@ export function runPipeline(ast, options = {}) {
         customPasses.push({ name: "scrambleArrays", fn: scrambleArrays, options: options.scrambleArrays });
     if (options.optimizePerformance !== undefined)
         customPasses.push({ name: "optimizePerformance", fn: optimizePerformance, options: options.optimizePerformance });
-    let passes;
-    if (customPasses.length > 0) {
-        passes = customPasses;
-    }
-    else {
-        passes = getPassesForLevel(level, seed);
-    }
+    const levelPasses = getPassesForLevel(level, seed);
+    // Merge: custom passes override level passes with same name, plus custom ones get added
+    const passMap = new Map();
+    for (const lp of levelPasses)
+        passMap.set(lp.name, lp);
+    for (const cp of customPasses)
+        passMap.set(cp.name, cp);
+    const passes = Array.from(passMap.values());
     const shuffled = shufflePasses(passes, rng);
     const renamePass = passes.find(p => p.name === "renameLocals");
     const otherPasses = passes.filter(p => p.name !== "renameLocals");

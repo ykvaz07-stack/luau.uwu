@@ -394,6 +394,138 @@ export class MBAEngine {
     }
   }
 
+  createIdentityOpaque(loc?: SourceLocation): { condition: Expression; expected: boolean } {
+    const l = cloneLoc(loc);
+    const isTrue = this.rng() > 0.5;
+    const variant = this.randInt(0, 8);
+
+    switch (variant) {
+      case 0: {
+        // (x+1)*(x-1) == x*x - 1
+        const x = this.randInt(3, 100);
+        return {
+          condition: binExp(
+            binExp(binExp(intExp(x, l), "+", intExp(1, l), l), "*", binExp(intExp(x, l), "-", intExp(1, l), l), l),
+            "==",
+            binExp(binExp(intExp(x * x, l), "-", intExp(1, l), l), "+", intExp(0, l), l),
+            l
+          ),
+          expected: true,
+        };
+      }
+      case 1: {
+        // (a+b)^2 == a^2 + 2ab + b^2
+        const a = this.randInt(2, 30);
+        const b = this.randInt(2, 30);
+        const lhs = binExp(
+          binExp(intExp(a, l), "+", intExp(b, l), l),
+          "^", intExp(2, l), l
+        );
+        const rhs = binExp(
+          binExp(binExp(intExp(a * a, l), "+", binExp(intExp(2 * a * b, l), "+", intExp(b * b, l), l), l), "+", intExp(0, l), l),
+          "-", intExp(0, l), l
+        );
+        return { condition: binExp(lhs, "==", rhs, l), expected: true };
+      }
+      case 2: {
+        // (a-b)^2 == a^2 - 2ab + b^2
+        const a = this.randInt(5, 50);
+        const b = this.randInt(2, a - 1);
+        const lhs = binExp(
+          binExp(intExp(a, l), "-", intExp(b, l), l),
+          "^", intExp(2, l), l
+        );
+        const rhs = binExp(
+          binExp(intExp(a * a, l), "-", binExp(intExp(2 * a * b, l), "+", intExp(b * b, l), l), l),
+          "+", intExp(0, l), l
+        );
+        return { condition: binExp(lhs, "==", rhs, l), expected: true };
+      }
+      case 3: {
+        // (a^3 - b^3) == (a-b)*(a^2 + ab + b^2)
+        const a = this.randInt(3, 20);
+        const b = this.randInt(2, a - 1);
+        const lhs = binExp(intExp(a * a * a, l), "-", intExp(b * b * b, l), l);
+        const inner = binExp(
+          binExp(intExp(a * a, l), "+", binExp(intExp(a * b, l), "+", intExp(b * b, l), l), l),
+          "+", intExp(0, l), l
+        );
+        const rhs = binExp(
+          binExp(intExp(a, l), "-", intExp(b, l), l),
+          "*", inner, l
+        );
+        return { condition: binExp(lhs, "==", rhs, l), expected: true };
+      }
+      case 4: {
+        // sin^2(x) + cos^2(x) == 1 (but approximated for ints using identity)
+        // Using: (x mod 2) == 0 → never true to create always-true
+        const x = this.randInt(2, 50);
+        const y = this.randInt(1, 10);
+        // (x^y mod x) == 0 → always true
+        const powApprox = Math.pow(x, Math.min(y, 5));
+        return {
+          condition: binExp(
+            binExp(intExp(powApprox, l), "%", intExp(x, l), l),
+            "==", intExp(0, l), l
+          ),
+          expected: true,
+        };
+      }
+      case 5: {
+        // 2 * (a + b) == (a + b) * 2
+        const a = this.randInt(3, 50);
+        const b = this.randInt(3, 50);
+        const sum = binExp(intExp(a, l), "+", intExp(b, l), l);
+        return {
+          condition: binExp(
+            binExp(intExp(2, l), "*", sum, l),
+            "==",
+            binExp(sum, "*", intExp(2, l), l),
+            l
+          ),
+          expected: true,
+        };
+      }
+      case 6: {
+        // (a & b) | (a & ~b) == a
+        const a = this.randInt(1, 255);
+        const b = this.randInt(1, 255);
+        const notB = binExp(intExp(~b & 0xFF, l), "&", intExp(0xFF, l), l);
+        return {
+          condition: binExp(
+            binExp(
+              binExp(intExp(a & b, l), "|", binExp(intExp(a, l), "&", notB, l), l),
+              "+", intExp(0, l), l
+            ),
+            "==",
+            binExp(intExp(a, l), "+", intExp(0, l), l),
+            l
+          ),
+          expected: true,
+        };
+      }
+      default: {
+        // (a | b) + (a & b) == a + b
+        const a = this.randInt(5, 100);
+        const b = this.randInt(5, 100);
+        return {
+          condition: binExp(
+            binExp(
+              binExp(intExp(a, l), "|", intExp(b, l), l),
+              "+",
+              binExp(intExp(a, l), "&", intExp(b, l), l),
+              l
+            ),
+            "==",
+            binExp(intExp(a, l), "+", intExp(b, l), l),
+            l
+          ),
+          expected: true,
+        };
+      }
+    }
+  }
+
   createVMBasedOpaque(vmProps: { stackTop?: string; ip?: string; code?: string }, loc?: SourceLocation): Expression {
     const l = cloneLoc(loc);
     const variant = this.randInt(0, 5);

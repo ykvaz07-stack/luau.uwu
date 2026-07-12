@@ -18,6 +18,10 @@ export declare class MBAEngine {
     };
     createAntiDSEPredicate(loc?: SourceLocation): Expression;
     createMBAInt(n: number, loc?: SourceLocation): Expression;
+    createIdentityOpaque(loc?: SourceLocation): {
+        condition: Expression;
+        expected: boolean;
+    };
     createVMBasedOpaque(vmProps: {
         stackTop?: string;
         ip?: string;

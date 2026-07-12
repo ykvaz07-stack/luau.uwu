@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import {
   lex,
   parse,
-  obfuscate,
-  encodeStrings,
+  runPipeline,
   printChunk,
 } from "../../../../../../clyde/dist/index.js";
 
@@ -117,7 +116,15 @@ local function kick(msg)
   end
 end
 
-local key = (script_key or getgenv().script_key or "")
+local key = script_key
+if key == nil or #key == 0 then
+  local ok_genv, genv = pcall(getgenv)
+  if ok_genv and type(genv) == "table" then
+    key = genv.script_key or ""
+  else
+    key = ""
+  end
+end
 
 local hwid = getHwid()
 local loadUrl = "${domain}/api/scripts/${id}/load"
@@ -158,21 +165,18 @@ if not success then
 end
 `;
 
-  // Light obfuscation pipeline (NO VM - loads must run in executor native environment)
+  // Obfuscation pipeline (NO VM - loads must run in executor native environment)
   const { tokens } = lex(lua);
   let ast = parse(tokens);
   
-  // 1. Rename locals to hide loader logic
-  ast = obfuscate(ast, { renameLocals: true, preserveGlobals: true });
-  
-  // 2. Encode string literals to hide URLs and messages
-  ast = encodeStrings(ast, {
-    enabled: true,
-    useFragmentation: true,
-    level: 2,
+  // Use medium-level pipeline: rename, string encode, number obfuscation,
+  // control flow scramble, table scramble, dead code, anti-debug
+  ast = runPipeline(ast, {
+    protectionLevel: "medium",
+    seed: Date.now() ^ Math.floor(Math.random() * 0x7fffffff),
   });
   
-  // 3. Print back to Lua - returns plain obfuscated code, NOT VM-wrapped
+  // Print back to Lua - returns plain obfuscated code, NOT VM-wrapped
   const finalLua = printChunk(ast);
 
   return new NextResponse(finalLua, {

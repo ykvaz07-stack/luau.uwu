@@ -108,6 +108,7 @@ export function generateBootstrap(config: BootstrapConfig): string {
   const nRaw = N(), nDec = N();
 
   const nOk = N(), nFn = N(), nState = N(), nResult = N(), nZeroExp = N();
+  const nAntiHook = N(), nAntiCaller = N(), nAntiClosure = N(), nAntiMeta = N();
 
   const junkFnNames = [N(), N(), N(), N(), N()];
   const junkVarNames = [N(), N(), N(), N(), N(), N(), N(), N()];
@@ -181,6 +182,11 @@ export function generateBootstrap(config: BootstrapConfig): string {
   const chL = obfuscateNum(108, rng);
 
   const chGetfenv = [103,101,116,102,101,110,118].map(c => obfuscateNum(c, rng)).join(',');
+  const chSetfenv = [115,101,116,102,101,110,118].map(c => obfuscateNum(c, rng)).join(',');
+  const chHookfunction = [104,111,111,107,102,117,110,99,116,105,111,110].map(c => obfuscateNum(c, rng)).join(',');
+  const chCheckcaller = [99,104,101,99,107,99,97,108,108,101,114].map(c => obfuscateNum(c, rng)).join(',');
+  const chNewcclosure = [110,101,119,99,99,108,111,115,117,114,101].map(c => obfuscateNum(c, rng)).join(',');
+  const chGetrawmetatable = [103,101,116,114,97,119,109,101,116,97,116,97,98,108,101].map(c => obfuscateNum(c, rng)).join(',');
 
   fragments.push({
     code: `local ${nDbgRef}=(function() local _0ok,_0r=${nPcall}(function() local _0d=rawget(_G,${nChar}(${chDebug})) if not _0d then local _0g=rawget(_G,${nChar}(${chGetfenv})) if _0g then _0d=rawget(_0g(0) or {},${nChar}(${chDebug})) end end return _0d and _0d[${nChar}(${chInfo})] end) return _0ok and _0r or nil end)()`,
@@ -189,6 +195,21 @@ export function generateBootstrap(config: BootstrapConfig): string {
   fragments.push({
     code: `local ${nLineRef}=${nDbgRef} and ${nDbgRef}(${obfuscateNum(1, rng)},${nChar}(${chL})) or 0`,
     layer: L_MERGE,
+  });
+
+  const antiHookGuard = N();
+  fragments.push({
+    code: [
+      `local ${nAntiHook}=${nPcall}(rawget,_G,${nChar}(${chHookfunction}))`,
+      `local ${nAntiCaller}=${nPcall}(rawget,_G,${nChar}(${chCheckcaller}))`,
+      `local ${nAntiClosure}=${nPcall}(rawget,_G,${nChar}(${chNewcclosure}))`,
+      `local ${nAntiMeta}=${nPcall}(rawget,_G,${nChar}(${chGetrawmetatable}))`,
+      `local ${antiHookGuard}=0`,
+      `if ${nAntiHook} or ${nAntiCaller} or ${nAntiClosure} or ${nAntiMeta} then`,
+      `  ${antiHookGuard}=${nByte}(${nChar}(${[1,2,3,4,5].map(() => obfuscateNum(1 + Math.floor(rng() * 254), rng)).join(',')}),${obfuscateNum(1, rng)})`,
+      `end`,
+    ].join('\n'),
+    layer: spreadLayer(),
   });
 
   {
@@ -384,7 +405,7 @@ export function generateBootstrap(config: BootstrapConfig): string {
   ].join('\n') });
 
   cases.push({ id: stDecrypt, code: [
-    `if not ${nKeyInteg}() or not ${nSboxInteg}() then ${nMutate}() end`,
+    `if not ${nKeyInteg}() or not ${nSboxInteg}() or ${antiHookGuard}~=0 then ${nMutate}() end`,
     `${nDec}=${nDecrypt}(${nRaw})`,
     `${nState}=${stVerify}`,
   ].join('\n') });

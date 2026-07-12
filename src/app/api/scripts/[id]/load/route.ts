@@ -61,7 +61,12 @@ import { createClient } from "@supabase/supabase-js";
 
 function isBrowserRequest(request: Request): boolean {
   const accept = request.headers.get("Accept") || "";
-  return accept.includes("text/html");
+  const userAgent = request.headers.get("User-Agent") || "";
+  // Only block if it's clearly a browser and NOT a Roblox executor
+  if (!accept.includes("text/html")) return false;
+  // Roblox executors might send Accept: text/html — check User-Agent
+  if (userAgent.includes("Roblox") || userAgent.includes("Synapse") || userAgent.includes("Electron")) return false;
+  return true;
 }
 
 export async function GET(
@@ -106,6 +111,8 @@ export async function GET(
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  let keyData: Record<string, any> | null = null;
+
   const { data: script, error: scriptError } = await supabase
     .from("scripts")
     .select("id, content, obfuscated_content, project_id")
@@ -144,12 +151,14 @@ export async function GET(
       );
     }
 
-    const { data: keyData, error: keyError } = await supabase
+    const { data: kd, error: keyError } = await supabase
       .from("keys")
       .select("id, user_key, identifier, banned, ban_reason, auth_expire, project_id, script_id, total_executions")
       .eq("user_key", key)
       .or(`script_id.eq.${scriptId},project_id.eq.${script.project_id}`)
       .single();
+
+    keyData = kd ?? null;
 
     if (keyError || !keyData) {
       return new NextResponse(
@@ -212,7 +221,7 @@ export async function GET(
       ip_address: ip,
       user_agent: userAgent,
       action: "script_load",
-      metadata: { script_id: scriptId, key_id: keyData?.id || null, executor_fp: executorFp },
+      metadata: { script_id: scriptId, key_id: keyData?.id ?? null, executor_fp: executorFp },
     });
   } catch {}
 

@@ -126,12 +126,13 @@ export function runPipeline(ast: Chunk, options: PipelineOptions = {}): Chunk {
   if (options.scrambleArrays !== undefined) customPasses.push({ name: "scrambleArrays", fn: scrambleArrays, options: options.scrambleArrays });
   if (options.optimizePerformance !== undefined) customPasses.push({ name: "optimizePerformance", fn: optimizePerformance, options: options.optimizePerformance });
 
-  let passes: RegisteredPass[];
-  if (customPasses.length > 0) {
-    passes = customPasses;
-  } else {
-    passes = getPassesForLevel(level, seed);
-  }
+  const levelPasses = getPassesForLevel(level, seed);
+
+  // Merge: custom passes override level passes with same name, plus custom ones get added
+  const passMap = new Map<string, RegisteredPass>();
+  for (const lp of levelPasses) passMap.set(lp.name, lp);
+  for (const cp of customPasses) passMap.set(cp.name, cp);
+  const passes = Array.from(passMap.values());
 
   const shuffled = shufflePasses(passes, rng);
 

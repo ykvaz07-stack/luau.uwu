@@ -859,7 +859,22 @@ export function encodeStrings(ast, options = {}) {
     const seed = options.key ?? 0x5A;
     const rng = createRng(seed);
     const strategies = options.strategies ?? ["xor", "add-rotate", "sbox"];
-    const keys = [seed & 0xff, (seed + 0x1A) & 0xff, (seed + 0x3B) & 0xff, (seed + 0x5C) & 0xff];
+    // Dynamic per-script key derivation: each script gets unique keys that vary per-string
+    const baseKey = seed & 0xFF;
+    const keyDerivation = [
+        (i) => (baseKey + i * 0x1A + 0x3B) & 0xFF,
+        (i) => (baseKey ^ (i * 0x3B) + 0x5C) & 0xFF,
+        (i) => (~(baseKey + i * 0x5C) & 0xFF),
+        (i) => ((baseKey << 1) ^ (i * 0x7D)) & 0xFF,
+    ];
+    // Generate key ring from multiple derivation functions
+    const keys = [];
+    for (let i = 0; i < 8; i++) {
+        const kf = keyDerivation[i % keyDerivation.length];
+        keys.push(kf(i));
+    }
+    // Add extra entropy from the seed
+    keys.push((seed >> 8) & 0xFF, (seed >> 16) & 0xFF, (seed >> 24) & 0xFF);
     const useFragmentation = options.useFragmentation ?? true;
     const level = options.level ?? 2;
     const useCrc8 = options.crc8 !== false && level >= 3;

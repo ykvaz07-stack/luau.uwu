@@ -81,7 +81,11 @@ function transformExpression(exp, engine) {
     return exp;
 }
 function wrapWithOpaque(condition, loc, engine) {
-    const { condition: opaque } = engine.createOpaquePredicate(loc);
+    // Mix standard and identity-based opaque predicates for stronger protection
+    const useIdentity = engine["rng"]() > 0.6;
+    const { condition: opaque } = useIdentity
+        ? engine.createIdentityOpaque(loc)
+        : engine.createOpaquePredicate(loc);
     return {
         type: "BinaryExpression",
         operator: "and",
