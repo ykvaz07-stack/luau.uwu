@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       });
     } else if (opts.vmType === "register") {
       const chunk = regCompile(obfuscatedAst);
-      const disableFeatures: string[] = [];
+      const disableFeatures: string[] = ["customCipher"];
       if (opts.vmLevel === "debug") disableFeatures.push("controlFlowFlattening");
       output = generateRegVM(chunk, {
         level: opts.vmLevel,
@@ -99,6 +99,7 @@ export async function POST(request: Request) {
         polymorphicSeed: Date.now(),
         disableFeatures,
       });
+      console.log(`[Obfuscate] Output: ${(output.length / 1024).toFixed(1)}KB (cipher disabled)`);
     } else {
       output = printChunk(obfuscatedAst);
     }

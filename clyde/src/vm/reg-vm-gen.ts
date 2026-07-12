@@ -3754,7 +3754,7 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
     console.log(`[RegVM] DUMP_RAW: saved ${output.length} chars to debug-vm-raw.lua`);
   }
 
-  if (level !== "debug" && process.env.NO_CIPHER !== '1') {
+  if (level !== "debug" && process.env.NO_CIPHER !== '1' && featureEnabled(options, "customCipher", true)) {
     const vmRawLen = Buffer.byteLength(output, 'utf-8');
     console.log(`[RegVM] Blob: encrypting VM runtime (${vmRawLen} bytes)...`);
     const { blob: vmBlob, xorKey, invSbox, checksum, origLen: vmOrigLen } = encryptAndEncode(output, rng);
