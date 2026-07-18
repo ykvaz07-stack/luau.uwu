@@ -6,16 +6,18 @@ export {
   obfuscateNumbers, flattenControlFlow,
   injectDeadCodePass, obfuscateFunctionCalls,
   scrambleTableFields, protectWithMetatables,
-  injectAntiDebug, embedWatermark,
+  injectAntiDebug, injectAntiBeautify, embedWatermark,
   MBAEngine, runPipeline,
   type ObfuscatorOptions, type StringEncoderOptions,
   type ControlFlowScramblerOptions, type NumberObfuscatorOptions,
   type ControlFlowFlattenerOptions, type DeadCodeInjectorOptions,
   type FunctionCallObfuscatorOptions, type TableFieldScramblerOptions,
   type MetatableProtectorOptions, type AntiDebugInjectorOptions,
-  type WatermarkEngineOptions, type PipelineOptions, type ProtectionLevel,
+  type AntiBeautifyInjectorOptions, type WatermarkEngineOptions,
+  type PipelineOptions, type ProtectionLevel,
   type MBAConfig,
 } from "./obfuscator/index.js";
+export { seedSoaRng, newSoa, soaEmit, soaFromFlatCode, soaSerializeXor, soaToFlat, generateSoaLoader, type SoaArray } from "./vm/soa-encoder.js";
 export type { Token, SourceLocation } from "./tokens.js";
 export type { Chunk, Statement, Expression } from "./ast/types.js";
 export { compile } from "./vm/Compiler.js";

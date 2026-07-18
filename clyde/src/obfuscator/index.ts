@@ -10,6 +10,7 @@ export { scrambleTableFields, type TableFieldScramblerOptions } from "./TableFie
 export { protectWithMetatables, type MetatableProtectorOptions } from "./MetatableProtector.js";
 export { injectAntiDebug, type AntiDebugInjectorOptions } from "./AntiDebugInjector.js";
 export { embedWatermark, type WatermarkEngineOptions } from "./WatermarkEngine.js";
+export { injectAntiBeautify, type AntiBeautifyInjectorOptions } from "./AntiBeautifyInjector.js";
 export { MBAEngine, type MBAConfig } from "./MBAExpressionEngine.js";
 export { applyControlFlowDoubling, type ControlFlowDoublingOptions } from "./ControlFlowDoubling.js";
 export { scrambleArrays, type ArrayScramblerOptions } from "./ArrayScrambler.js";

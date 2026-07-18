@@ -1190,7 +1190,7 @@ function buildBuiltinCaptures(ctx: BuildCtx): { code: string; assignOnly: string
       [n.tPack, "table.pack"], [n.tUnpack, "table.unpack"], [n.bTcreate, "table.create"],
       [n.bTconcat, "table.concat"], [n.bMfloor, "math.floor"], [n.bIpairs, "ipairs"],
       [n.bTostring, "tostring"], [n.bRawget, "rawget"], [n.bSetmeta, "setmetatable"],
-      [n.bBxor, "bit32.bxor"], [n.bBand, "bit32.band"],
+      [n.bBxor, "(bit32 and bit32.bxor) or (bit and bit.bxor) or (function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2~=math.floor(b/(2^_i))%2 then r=r+p end p=p*2 end return r end)"], [n.bBand, "(bit32 and bit32.band) or (bit and bit.band) or (function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2==1 and math.floor(b/(2^_i))%2==1 then r=r+p end p=p*2 end return r end)"],
       [n.bGetmeta, "getmetatable"], [n.bNext, "next"],
     ];
     const fullLines = captures.map(([v, g]) => `local ${v}=${g}`);

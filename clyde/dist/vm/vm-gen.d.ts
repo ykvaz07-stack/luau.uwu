@@ -1,6 +1,6 @@
 import type { BytecodeChunk } from "./bytecode.js";
 export type VMGenLevel = "debug" | "normal" | "max";
-export type FeatureFlag = "fakeHandlers" | "opaquePredicates" | "cff" | "handlerMutation" | "handlerNoise" | "antiDebug" | "antiTamper" | "superOperators" | "constantFolding" | "minification" | "stringFragment" | "lazyDecode" | "nopCamouflage" | "contextOpcodes" | "nonLinearJumps" | "antiHookDeep" | "antiDump" | "sandboxDetect" | "cfi" | "runtimeMonitor" | "stringMutation" | "adaptiveFragments" | "stackPooling" | "gcOptimizations" | "platformLock" | "integrityRollup" | "stackCanary" | "envValidation";
+export type FeatureFlag = "fakeHandlers" | "opaquePredicates" | "cff" | "handlerMutation" | "handlerNoise" | "antiDebug" | "antiTamper" | "superOperators" | "constantFolding" | "minification" | "stringFragment" | "lazyDecode" | "nopCamouflage" | "contextOpcodes" | "nonLinearJumps" | "antiHookDeep" | "antiDump" | "sandboxDetect" | "cfi" | "runtimeMonitor" | "stringMutation" | "adaptiveFragments" | "stackPooling" | "antiBeautifyTraps" | "soaEncoding" | "gcOptimizations" | "platformLock" | "integrityRollup" | "stackCanary" | "envValidation";
 export interface VMGenOptions {
     level?: VMGenLevel;
     executorGlobals?: boolean;

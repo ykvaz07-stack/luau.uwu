@@ -10,6 +10,7 @@ import { type TableFieldScramblerOptions } from "./TableFieldScrambler.js";
 import { type MetatableProtectorOptions } from "./MetatableProtector.js";
 import { type AntiDebugInjectorOptions } from "./AntiDebugInjector.js";
 import { type WatermarkEngineOptions } from "./WatermarkEngine.js";
+import { type AntiBeautifyInjectorOptions } from "./AntiBeautifyInjector.js";
 import { type ControlFlowDoublingOptions } from "./ControlFlowDoubling.js";
 import { type ArrayScramblerOptions } from "./ArrayScrambler.js";
 import { type PerformanceOptimizerOptions } from "./PerformanceOptimizer.js";
@@ -26,6 +27,7 @@ export interface PipelineOptions {
     tableScrambling?: TableFieldScramblerOptions;
     metatableProtection?: MetatableProtectorOptions;
     antiDebug?: AntiDebugInjectorOptions;
+    antiBeautify?: AntiBeautifyInjectorOptions;
     watermark?: WatermarkEngineOptions;
     controlFlowDoubling?: ControlFlowDoublingOptions;
     scrambleArrays?: ArrayScramblerOptions;

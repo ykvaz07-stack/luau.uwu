@@ -10,6 +10,7 @@ import { scrambleTableFields, type TableFieldScramblerOptions } from "./TableFie
 import { protectWithMetatables, type MetatableProtectorOptions } from "./MetatableProtector.js";
 import { injectAntiDebug, type AntiDebugInjectorOptions } from "./AntiDebugInjector.js";
 import { embedWatermark, type WatermarkEngineOptions } from "./WatermarkEngine.js";
+import { injectAntiBeautify, type AntiBeautifyInjectorOptions } from "./AntiBeautifyInjector.js";
 import { applyControlFlowDoubling, type ControlFlowDoublingOptions } from "./ControlFlowDoubling.js";
 import { scrambleArrays, type ArrayScramblerOptions } from "./ArrayScrambler.js";
 import { optimizePerformance, type PerformanceOptimizerOptions } from "./PerformanceOptimizer.js";
@@ -30,6 +31,7 @@ export interface PipelineOptions {
   tableScrambling?: TableFieldScramblerOptions;
   metatableProtection?: MetatableProtectorOptions;
   antiDebug?: AntiDebugInjectorOptions;
+  antiBeautify?: AntiBeautifyInjectorOptions;
   watermark?: WatermarkEngineOptions;
   controlFlowDoubling?: ControlFlowDoublingOptions;
   scrambleArrays?: ArrayScramblerOptions;
@@ -99,7 +101,8 @@ function getPassesForLevel(level: ProtectionLevel, baseSeed: number): Registered
   passes.push({ name: "obfuscateNumbers", fn: obfuscateNumbers, options: { seed: baseSeed + 14, useBitops: true } });
   passes.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: { seed: baseSeed + 15 } });
   passes.push({ name: "scrambleArrays", fn: scrambleArrays, options: { seed: baseSeed + 16, minFields: 4 } });
-  passes.push({ name: "optimizePerformance", fn: optimizePerformance, options: { seed: baseSeed + 17, level: 3 } });
+  passes.push({ name: "antiBeautify", fn: injectAntiBeautify, options: { seed: baseSeed + 17, intensity: 0.6 } });
+  passes.push({ name: "optimizePerformance", fn: optimizePerformance, options: { seed: baseSeed + 18, level: 3 } });
 
   return passes;
 }
@@ -121,6 +124,7 @@ export function runPipeline(ast: Chunk, options: PipelineOptions = {}): Chunk {
   if (options.tableScrambling !== undefined) customPasses.push({ name: "tableScrambling", fn: scrambleTableFields, options: options.tableScrambling });
   if (options.metatableProtection !== undefined) customPasses.push({ name: "metatableProtection", fn: protectWithMetatables, options: options.metatableProtection });
   if (options.antiDebug !== undefined) customPasses.push({ name: "antiDebug", fn: injectAntiDebug, options: options.antiDebug });
+  if (options.antiBeautify !== undefined) customPasses.push({ name: "antiBeautify", fn: injectAntiBeautify, options: options.antiBeautify });
   if (options.watermark !== undefined) customPasses.push({ name: "watermark", fn: embedWatermark, options: options.watermark });
   if (options.controlFlowDoubling !== undefined) customPasses.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: options.controlFlowDoubling });
   if (options.scrambleArrays !== undefined) customPasses.push({ name: "scrambleArrays", fn: scrambleArrays, options: options.scrambleArrays });

@@ -1511,7 +1511,7 @@ function wrapStubVM(source) {
         L.push(`local ${a_sc}=string.char`);
         L.push(`local ${a_sb}=string.byte`);
     }
-    L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or (type(getfenv)=="function" and getfenv(0)) or _G;return _g end)`);
+    L.push(`local ${pvv},${efv}=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or _G;return _g end)`);
     L.push(`if not ${pvv} then ${efv}=_G end`);
     L.push(`local ${b32v}=${efv}[${a_sc}(${encSC('bit32')})]`);
     const b32Methods = [
@@ -1952,7 +1952,7 @@ function buildEnvSetup(n, level, includeExecutor, targetVersion = "universal") {
     const genv = n.genv;
     const env = n.env;
     if (level === "debug") {
-        let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getgenv)=="table" and getgenv)or(type(getfenv)=="function" and getfenv(0))or _G\n`;
+        let code = `local ${genv}=(type(getgenv)=="function" and getgenv())or(type(getgenv)=="table" and getgenv)or _G\n`;
         const entries = getGlobalsForTarget(targetVersion).map(g => `${g}=${g}`).join(",");
         code += `local ${env}=setmetatable({${entries}},{__index=function(_,k) local ok,v=pcall(function() return ${genv}[k] end);if ok then return v end;return nil end})\n`;
         if (includeExecutor) {
@@ -2077,6 +2077,7 @@ function buildEnvSetup(n, level, includeExecutor, targetVersion = "universal") {
     const encLookup = (s) => `${collatzDec}({${collatzEncodeString(s, collatzSeed).join(",")}})`;
     lines.push(`if not ${bRG}(${env},${encLookup("unpack")}) then local _t=${bRG}(${env},${encLookup("table")});if _t then ${bRS}(${env},${encLookup("unpack")},_t[${encLookup("unpack")}]) end end`);
     lines.push(`if not ${bRG}(${env},${encLookup("loadstring")}) then ${bRS}(${env},${encLookup("loadstring")},${bRG}(${env},${encLookup("load")})) end`);
+    lines.push(`if not ${bRG}(${env},${encLookup("bit32")}) then ${bRS}(${env},${encLookup("bit32")},{bxor=function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2~=math.floor(b/(2^_i))%2 then r=r+p end p=p*2 end return r end,band=function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2==1 and math.floor(b/(2^_i))%2==1 then r=r+p end p=p*2 end return r end,bor=function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2==1 or math.floor(b/(2^_i))%2==1 then r=r+p end p=p*2 end return r end,bnot=function(a) local r,p,c=0,1,0 for _i=0,31 do c=math.floor(a/(2^_i))%2; if c==0 then r=r+p end p=p*2 end return r end,lshift=function(a,b) if b>=32 or b<=0 then return 0 end return (a*(2^b))%(2^32) end,rshift=function(a,b) if b>=32 then return 0 end if b<=0 then return a end return math.floor(a/(2^b)) end,arshift=function(a,b) local r=math.floor(a/(2^b)); if a<0 and b>0 then for _i=32,32+b-1 do r=r+2^_i end end return math.floor(r) end,lrotate=function(a,b) b=b%32;local lo=math.floor(a/(2^(32-b)));local hi=(a*(2^b))%(2^32);return hi+lo end,rrotate=function(a,b) b=b%32;local lo=math.floor(a/(2^b));local hi=(a*(2^(32-b)))%(2^32);return lo+hi end,extract=function(a,f,w) w=w or 1;local m=(2^w)-1;local s=math.floor(a/(2^f));return s%m end,replace=function(a,v,f,w) w=w or 1;local m=(2^w)-1;local cl=math.floor(a/(2^f))%m;local cv=v%m;return a-cl*(2^f)+cv*(2^f) end}) end`);
     if (level === "max") {
         const dbV = randomName(3);
         const dbEnvV = randomName(3);
@@ -3409,6 +3410,8 @@ export function generateVM(chunk, options = {}) {
     const doEnvValidation = featureEnabled(options, "envValidation", level === "max");
     const doIntegrityRollup = featureEnabled(options, "integrityRollup", level === "max");
     const doStackCanary = featureEnabled(options, "stackCanary", level === "max");
+    const doSoaEncode = featureEnabled(options, "soaEncoding", level === "max");
+    const doAntiBeautify = featureEnabled(options, "antiBeautifyTraps", level === "max");
     if (featureEnabled(options, "superOperators", level === "max")) {
         fuseChunk(chunk);
     }
@@ -3688,6 +3691,12 @@ export function generateVM(chunk, options = {}) {
         parts.push(`return ${n.run}(${dK},${dC},${n.env},${dP})`);
     }
     let output = parts.join("\n");
+    if (doSoaEncode) {
+        output = wrapSoaEncodePost(output);
+    }
+    if (doAntiBeautify) {
+        output = wrapAntiBeautifyPost(output);
+    }
     output = output.replace(/;/g, "\n");
     if (doMinify) {
         output = minify(output);
@@ -3724,6 +3733,40 @@ export function generateVM(chunk, options = {}) {
         const watermark = `--[[\n${artLines.join('\n')}\n]]\n`;
         output = watermark + output;
     }
+    if (doSoaEncode) {
+        output = wrapSoaEncodePost(output);
+    }
+    if (doAntiBeautify) {
+        output = wrapAntiBeautifyPost(output);
+    }
     return output;
+}
+function wrapSoaEncodePost(source) {
+    const nSb = randomName(2);
+    const nSc = randomName(2);
+    const nBx = randomName(2);
+    const prefix = [
+        `local ${nSb}=string.byte;local ${nSc}=string.char`,
+        `local ${nBx}=(bit32 and bit32.bxor) or function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2~=math.floor(b/(2^_i))%2 then r=r+p end p=p*2 end return r end`,
+        `--[=[preamble_SoA tag id:X]==]`,
+    ].join(";");
+    const traps = [
+        `--[[${randomName(3)}]];local ___=_G and _G`,
+        `--[=[_section_meta]==];`,
+        `--[===[__=#===\\x7B]===]`,
+        `do local __=1;__={} end;`,
+    ];
+    const suffix = traps[Math.floor(rng() * traps.length)];
+    return prefix + "\n" + source + "\n" + suffix;
+}
+function wrapAntiBeautifyPost(source) {
+    const abTraps = [
+        `--[[line:9999]];local _ab=(function() return end)()`,
+        `;local _ab0=select(1,44);local _ab1=#_G`,
+        `local _ab2=[[` + randomName(5) + `]];\;local _ab3={}`,
+        `do local _=pcall(function() error("\\x00",0) end) end;`,
+    ];
+    const trap = abTraps[Math.floor(rng() * abTraps.length)];
+    return trap + "\n" + source + "\n" + trap;
 }
 //# sourceMappingURL=vm-gen.js.map

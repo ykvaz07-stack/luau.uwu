@@ -10,6 +10,7 @@ export { scrambleTableFields } from "./TableFieldScrambler.js";
 export { protectWithMetatables } from "./MetatableProtector.js";
 export { injectAntiDebug } from "./AntiDebugInjector.js";
 export { embedWatermark } from "./WatermarkEngine.js";
+export { injectAntiBeautify } from "./AntiBeautifyInjector.js";
 export { MBAEngine } from "./MBAExpressionEngine.js";
 export { applyControlFlowDoubling } from "./ControlFlowDoubling.js";
 export { scrambleArrays } from "./ArrayScrambler.js";

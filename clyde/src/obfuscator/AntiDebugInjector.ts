@@ -1,4 +1,4 @@
-import type { Chunk, Statement, LastStatement, Expression, CallExpression, MemberExpression, LocalStatement, IfStatement } from "../ast/types.js";
+import type { Chunk, Statement, LastStatement, Expression, CallExpression, MemberExpression, LocalStatement, IfStatement, FunctionExpression, ReturnStatement } from "../ast/types.js";
 import type { SourceLocation } from "../tokens.js";
 
 export interface AntiDebugInjectorOptions {
@@ -149,22 +149,40 @@ function typeCallExp(arg: Expression, loc: SourceLocation): CallExpression {
 }
 
 function pcallMemberExp(obj: Expression, prop: string, loc: SourceLocation): CallExpression {
-  return callExp(idExp("pcall", loc), [memberExp(obj, prop, loc)], loc);
+  const func: FunctionExpression = {
+    type: "FunctionExpression",
+    params: [],
+    body: [{ type: "ReturnStatement", values: [memberExp(obj, prop, loc)] } as ReturnStatement],
+    loc,
+  };
+  return callExp(idExp("pcall", loc), [func], loc);
 }
 
 function pcallCallExp(callee: Expression, args: Expression[], loc: SourceLocation): CallExpression {
-  return callExp(idExp("pcall", loc), [callExp(callee, args, loc)], loc);
+  const func: FunctionExpression = {
+    type: "FunctionExpression",
+    params: [],
+    body: [{ type: "ReturnStatement", values: [{ type: "CallExpression", callee, args, loc } as CallExpression] } as ReturnStatement],
+    loc,
+  };
+  return callExp(idExp("pcall", loc), [func], loc);
 }
 
 function makeHookDetection(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
-  const varName = `_ad${Math.floor(rng() * 100000)}`;
+  const varOk = `_ad${Math.floor(rng() * 100000)}`;
+  const varResult = `_ad${Math.floor(rng() * 100000)}`;
   const stmts: Statement[] = [
-    localStmt(varName, pcallMemberExp(idExp("debug", loc), "gethook", loc), loc),
+    {
+      type: "LocalStatement",
+      vars: [{ name: varOk }, { name: varResult }],
+      values: [pcallMemberExp(idExp("debug", loc), "gethook", loc)],
+      loc,
+    },
   ];
 
   if (intensity >= 0.5) {
-    const notNil = binExp(typeCallExp(idExp(varName, loc), loc), "~=", nilExp(loc), loc);
-    const truthy = idExp(varName, loc);
+    const notNil = binExp(typeCallExp(idExp(varResult, loc), loc), "~=", nilExp(loc), loc);
+    const truthy = idExp(varResult, loc);
     stmts.push(ifStmt(binExp(notNil, "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
   }
 
@@ -172,10 +190,16 @@ function makeHookDetection(loc: SourceLocation, rng: () => number, intensity: nu
 }
 
 function makeCallDepthCheck(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const varOk = `_ad${Math.floor(rng() * 100000)}`;
   const varName = `_ad${Math.floor(rng() * 100000)}`;
   const depthArg = mbaInt(5, rng, loc);
   const stmts: Statement[] = [
-    localStmt(varName, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [depthArg, strExp("n", loc)], loc), loc),
+    {
+      type: "LocalStatement",
+      vars: [{ name: varOk }, { name: varName }],
+      values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [depthArg, strExp("n", loc)], loc)],
+      loc,
+    },
   ];
 
   if (intensity >= 0.55) {
@@ -188,17 +212,29 @@ function makeCallDepthCheck(loc: SourceLocation, rng: () => number, intensity: n
 }
 
 function makeStackFrameCheck(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const varOk1 = `_ad${Math.floor(rng() * 100000)}`;
   const varName1 = `_ad${Math.floor(rng() * 100000)}`;
+  const varOk2 = `_ad${Math.floor(rng() * 100000)}`;
   const varName2 = `_ad${Math.floor(rng() * 100000)}`;
   const frame1Arg = mbaInt(1, rng, loc);
   const frame2Arg = mbaInt(2, rng, loc);
   const stmts: Statement[] = [
-    localStmt(varName1, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame1Arg, strExp("n", loc)], loc), loc),
-    localStmt(varName2, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame2Arg, strExp("n", loc)], loc), loc),
+    {
+      type: "LocalStatement",
+      vars: [{ name: varOk1 }, { name: varName1 }],
+      values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame1Arg, strExp("n", loc)], loc)],
+      loc,
+    },
+    {
+      type: "LocalStatement",
+      vars: [{ name: varOk2 }, { name: varName2 }],
+      values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame2Arg, strExp("n", loc)], loc)],
+      loc,
+    },
   ];
 
   if (intensity >= 0.6) {
-    const check = binExp(idExp(varName1, loc), "==", idExp(varName2, loc), loc);
+    const check = binExp(binExp(idExp(varOk1, loc), "and", idExp(varOk2, loc), loc), "and", binExp(idExp(varName1, loc), "==", idExp(varName2, loc), loc), loc);
     stmts.push(ifStmt(check, makeTamperBlock(loc, rng, intensity), loc));
   }
 

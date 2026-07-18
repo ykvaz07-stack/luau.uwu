@@ -120,28 +120,52 @@ function typeCallExp(arg, loc) {
     return callExp(idExp("type", loc), [arg], loc);
 }
 function pcallMemberExp(obj, prop, loc) {
-    return callExp(idExp("pcall", loc), [memberExp(obj, prop, loc)], loc);
+    const func = {
+        type: "FunctionExpression",
+        params: [],
+        body: [{ type: "ReturnStatement", values: [memberExp(obj, prop, loc)] }],
+        loc,
+    };
+    return callExp(idExp("pcall", loc), [func], loc);
 }
 function pcallCallExp(callee, args, loc) {
-    return callExp(idExp("pcall", loc), [callExp(callee, args, loc)], loc);
+    const func = {
+        type: "FunctionExpression",
+        params: [],
+        body: [{ type: "ReturnStatement", values: [{ type: "CallExpression", callee, args, loc }] }],
+        loc,
+    };
+    return callExp(idExp("pcall", loc), [func], loc);
 }
 function makeHookDetection(loc, rng, intensity) {
-    const varName = `_ad${Math.floor(rng() * 100000)}`;
+    const varOk = `_ad${Math.floor(rng() * 100000)}`;
+    const varResult = `_ad${Math.floor(rng() * 100000)}`;
     const stmts = [
-        localStmt(varName, pcallMemberExp(idExp("debug", loc), "gethook", loc), loc),
+        {
+            type: "LocalStatement",
+            vars: [{ name: varOk }, { name: varResult }],
+            values: [pcallMemberExp(idExp("debug", loc), "gethook", loc)],
+            loc,
+        },
     ];
     if (intensity >= 0.5) {
-        const notNil = binExp(typeCallExp(idExp(varName, loc), loc), "~=", nilExp(loc), loc);
-        const truthy = idExp(varName, loc);
+        const notNil = binExp(typeCallExp(idExp(varResult, loc), loc), "~=", nilExp(loc), loc);
+        const truthy = idExp(varResult, loc);
         stmts.push(ifStmt(binExp(notNil, "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
     }
     return stmts;
 }
 function makeCallDepthCheck(loc, rng, intensity) {
+    const varOk = `_ad${Math.floor(rng() * 100000)}`;
     const varName = `_ad${Math.floor(rng() * 100000)}`;
     const depthArg = mbaInt(5, rng, loc);
     const stmts = [
-        localStmt(varName, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [depthArg, strExp("n", loc)], loc), loc),
+        {
+            type: "LocalStatement",
+            vars: [{ name: varOk }, { name: varName }],
+            values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [depthArg, strExp("n", loc)], loc)],
+            loc,
+        },
     ];
     if (intensity >= 0.55) {
         const notNil = binExp(typeCallExp(idExp(varName, loc), loc), "~=", nilExp(loc), loc);
@@ -151,16 +175,28 @@ function makeCallDepthCheck(loc, rng, intensity) {
     return stmts;
 }
 function makeStackFrameCheck(loc, rng, intensity) {
+    const varOk1 = `_ad${Math.floor(rng() * 100000)}`;
     const varName1 = `_ad${Math.floor(rng() * 100000)}`;
+    const varOk2 = `_ad${Math.floor(rng() * 100000)}`;
     const varName2 = `_ad${Math.floor(rng() * 100000)}`;
     const frame1Arg = mbaInt(1, rng, loc);
     const frame2Arg = mbaInt(2, rng, loc);
     const stmts = [
-        localStmt(varName1, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame1Arg, strExp("n", loc)], loc), loc),
-        localStmt(varName2, pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame2Arg, strExp("n", loc)], loc), loc),
+        {
+            type: "LocalStatement",
+            vars: [{ name: varOk1 }, { name: varName1 }],
+            values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame1Arg, strExp("n", loc)], loc)],
+            loc,
+        },
+        {
+            type: "LocalStatement",
+            vars: [{ name: varOk2 }, { name: varName2 }],
+            values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame2Arg, strExp("n", loc)], loc)],
+            loc,
+        },
     ];
     if (intensity >= 0.6) {
-        const check = binExp(idExp(varName1, loc), "==", idExp(varName2, loc), loc);
+        const check = binExp(binExp(idExp(varOk1, loc), "and", idExp(varOk2, loc), loc), "and", binExp(idExp(varName1, loc), "==", idExp(varName2, loc), loc), loc);
         stmts.push(ifStmt(check, makeTamperBlock(loc, rng, intensity), loc));
     }
     return stmts;

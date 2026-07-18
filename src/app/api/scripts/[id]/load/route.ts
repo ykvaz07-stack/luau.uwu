@@ -62,11 +62,9 @@ import { createClient } from "@supabase/supabase-js";
 function isBrowserRequest(request: Request): boolean {
   const accept = request.headers.get("Accept") || "";
   const userAgent = request.headers.get("User-Agent") || "";
-  // Only block if it's clearly a browser and NOT a Roblox executor
   if (!accept.includes("text/html")) return false;
-  // Roblox executors might send Accept: text/html — check User-Agent
-  if (userAgent.includes("Roblox") || userAgent.includes("Synapse") || userAgent.includes("Electron")) return false;
-  return true;
+  if (userAgent.includes("Mozilla") || userAgent.includes("Chrome/") || userAgent.includes("Safari/") || userAgent.includes("Firefox/") || userAgent.includes("Edge/")) return true;
+  return false;
 }
 
 export async function GET(

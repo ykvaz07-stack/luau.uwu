@@ -9,6 +9,7 @@ import { scrambleTableFields } from "./TableFieldScrambler.js";
 import { protectWithMetatables } from "./MetatableProtector.js";
 import { injectAntiDebug } from "./AntiDebugInjector.js";
 import { embedWatermark } from "./WatermarkEngine.js";
+import { injectAntiBeautify } from "./AntiBeautifyInjector.js";
 import { applyControlFlowDoubling } from "./ControlFlowDoubling.js";
 import { scrambleArrays } from "./ArrayScrambler.js";
 import { optimizePerformance } from "./PerformanceOptimizer.js";
@@ -59,7 +60,8 @@ function getPassesForLevel(level, baseSeed) {
     passes.push({ name: "obfuscateNumbers", fn: obfuscateNumbers, options: { seed: baseSeed + 14, useBitops: true } });
     passes.push({ name: "controlFlowDoubling", fn: applyControlFlowDoubling, options: { seed: baseSeed + 15 } });
     passes.push({ name: "scrambleArrays", fn: scrambleArrays, options: { seed: baseSeed + 16, minFields: 4 } });
-    passes.push({ name: "optimizePerformance", fn: optimizePerformance, options: { seed: baseSeed + 17, level: 3 } });
+    passes.push({ name: "antiBeautify", fn: injectAntiBeautify, options: { seed: baseSeed + 17, intensity: 0.6 } });
+    passes.push({ name: "optimizePerformance", fn: optimizePerformance, options: { seed: baseSeed + 18, level: 3 } });
     return passes;
 }
 export function runPipeline(ast, options = {}) {
@@ -87,6 +89,8 @@ export function runPipeline(ast, options = {}) {
         customPasses.push({ name: "metatableProtection", fn: protectWithMetatables, options: options.metatableProtection });
     if (options.antiDebug !== undefined)
         customPasses.push({ name: "antiDebug", fn: injectAntiDebug, options: options.antiDebug });
+    if (options.antiBeautify !== undefined)
+        customPasses.push({ name: "antiBeautify", fn: injectAntiBeautify, options: options.antiBeautify });
     if (options.watermark !== undefined)
         customPasses.push({ name: "watermark", fn: embedWatermark, options: options.watermark });
     if (options.controlFlowDoubling !== undefined)

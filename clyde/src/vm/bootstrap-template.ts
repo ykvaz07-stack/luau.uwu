@@ -160,9 +160,14 @@ export function generateBootstrap(config: BootstrapConfig): string {
   {
     const builtins: [string, string][] = [
       [nByte, 'string.byte'], [nGsub, 'string.gsub'], [nSub, 'string.sub'],
-      [nChar, 'string.char'], [nLoad, '(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)'], [nAssert, 'assert'],
-      [nType, 'type'], [nBxor, 'bit32.bxor'], [nPcall, 'pcall'],
-      [nTconcat, 'table.concat'], [nBand, 'bit32.band'], [nRshift, 'bit32.rshift'], [nUnpack, 'table.unpack'],
+      [nChar, 'string.char'],
+      [nLoad, '(function() local _f local _ok,_r=pcall(function() local _g=(type(getgenv)=="function" and getgenv()) or (type(getgenv)=="table" and getgenv) or _G;return _g.loadstring or _g.load end) if _ok and _r then _f=_r end if not _f then _ok,_r=pcall(function() return loadstring or load end) if _ok and _r then _f=_r end if not _f then _f=rawget(_G,"loadstring") or rawget(_G,"load") end return _f end)()'],
+      [nAssert, 'assert'], [nType, 'type'],
+      [nBxor, '(bit32 and bit32.bxor) or (bit and bit.bxor) or (function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2~=math.floor(b/(2^_i))%2 then r=r+p end p=p*2 end return r end)'],
+      [nPcall, 'pcall'], [nTconcat, 'table.concat'],
+      [nBand, '(bit32 and bit32.band) or (bit and bit.band) or (function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2==1 and math.floor(b/(2^_i))%2==1 then r=r+p end p=p*2 end return r end)'],
+      [nRshift, '(bit32 and bit32.rshift) or (bit and bit.rshift) or (function(a,b) if b>=32 then return 0 end if b<=0 then return a end return math.floor(a/(2^b)) end)'],
+      [nUnpack, 'unpack or table.unpack'],
     ];
     shuffle(builtins, rng);
     let bi = 0;
@@ -297,9 +302,12 @@ export function generateBootstrap(config: BootstrapConfig): string {
     `s=${nGsub}(s,"[%s]","")`,
     `local ${nZeroExp}=${nChar}(33):rep(5)`,
     `s=${nGsub}(s,"z",${nZeroExp})`,
+    `local _rem=#s%5`,
+    `if _rem>0 then local _pad="" for _=1,5-_rem do _pad=_pad..${nChar}(33) end s=s.._pad end`,
     `local o={}`,
     `for i=1,#s,5 do`,
     `local d,e,f,g,h=${nByte}(s,i,i+4)`,
+    `if not h then d,e,f,g,h=d or 33,e or 33,f or 33,g or 33,33 end`,
     `local v=(d-33)*52200625+(e-33)*614125+(f-33)*7225+(g-33)*85+(h-33)`,
     `o[#o+1]=${nChar}(${nBand}(${nRshift}(v,24),0xFF))`,
     `o[#o+1]=${nChar}(${nBand}(${nRshift}(v,16),0xFF))`,
