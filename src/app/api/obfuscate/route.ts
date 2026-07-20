@@ -3,6 +3,7 @@ import {
   lex,
   parse,
   runPipeline,
+  runPipelineWithPhantomVM,
   compile,
   regCompile,
   generateVM,
@@ -13,7 +14,7 @@ import {
 interface ObfuscateRequest {
   script_id: string;
   options?: {
-    vmType?: "none" | "stack" | "register";
+    vmType?: "none" | "stack" | "register" | "phantom";
     vmLevel?: "debug" | "normal" | "max" | "maximum";
     perfLevel?: 1 | 2 | 3;
     encodeStrings?: boolean;
@@ -99,13 +100,25 @@ export async function POST(request: Request) {
         polymorphicSeed: Date.now() ^ Math.floor(Math.random() * 0x7fffffff),
         disableFeatures,
       });
+    } else if (opts.vmType === "phantom") {
+      output = runPipelineWithPhantomVM(ast, {
+        protectionLevel: opts.vmLevel === "debug" ? "medium" : "max",
+        seed: Date.now() ^ Math.floor(Math.random() * 0x7fffffff),
+        phantomVM: {
+          level: opts.vmLevel === "debug" ? "min" : "max",
+          seed: Date.now() ^ Math.floor(Math.random() * 0x7fffffff),
+          antiDebug: opts.vmLevel === "max",
+        },
+      });
     } else {
       output = printChunk(obfuscatedAst);
     }
 
-    const obfuscationLevel = body.options?.vmType === "none"
+    const vmType = body.options?.vmType || "register";
+    const vmLevel = body.options?.vmLevel || "maximum";
+    const obfuscationLevel = vmType === "none"
       ? "basic"
-      : `${body.options?.vmType || "register"}_${body.options?.vmLevel || "maximum"}`;
+      : `${vmType}_${vmLevel}`;
 
     const { error: updateError } = await supabase
       .from("scripts")

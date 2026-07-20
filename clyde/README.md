@@ -248,7 +248,7 @@ Obfuscates Luau source code with configurable options.
 | `encodeStrings` | `boolean` | `false` | Enable string encoding pass |
 | `scramble` | `boolean` | `false` | Enable control flow scrambling |
 | `oneLine` | `boolean` | `false` | Minify output to a single line |
-| `vmType` | `string` | `"none"` | VM type: `"none"`, `"stack"`, or `"register"` |
+| `vmType` | `string` | `"none"` | VM type: `"none"`, `"stack"`, `"register"`, or `"phantom"` |
 | `vmLevel` | `string` | `"normal"` | Protection level: `"debug"`, `"normal"`, or `"maximum"` |
 
 ---

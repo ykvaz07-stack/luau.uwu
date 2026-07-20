@@ -12,6 +12,8 @@ import { compile } from "./vm/Compiler.js";
 import { regCompile } from "./vm/RegCompiler.js";
 import { generateVM } from "./vm/vm-gen.js";
 import { generateRegVM } from "./vm/reg-vm-gen.js";
+import { compilePhantom } from "./vm/phantom-compiler.js";
+import { generatePhantomVM } from "./vm/phantom-vm-gen.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
@@ -93,6 +95,21 @@ app.post("/api/obfuscate", (req, res) => {
                 executorGlobals: vmLevel !== "debug",
                 polymorphicSeed: Date.now(),
                 disableFeatures: disableFeatures,
+            });
+        }
+        else if (vmType === "phantom") {
+            const obfuscated = obfuscate(ast, {
+                renameLocals: !noRename,
+                preserveGlobals: !noPreserve,
+            });
+            const phantomCode = encodeStringsOpt
+                ? encodeStrings(obfuscated, { enabled: true })
+                : obfuscated;
+            const chunk = compilePhantom(scrambleOpt ? scrambleControlFlow(phantomCode, { enabled: true }) : phantomCode);
+            output = generatePhantomVM(chunk, {
+                level: vmLevel === "debug" ? "min" : "max",
+                seed: Date.now(),
+                antiDebug: vmLevel === "max",
             });
         }
         else {
