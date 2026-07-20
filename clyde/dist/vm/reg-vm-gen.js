@@ -3,6 +3,11 @@ import { randomBytes } from "crypto";
 import { writeFileSync as _dumpWrite } from "fs";
 import { encryptAndEncode } from "./lzma.js";
 import { generateBootstrap } from "./bootstrap-template.js";
+function normalizeLevel(level) {
+    if (level === "maximum")
+        return "max";
+    return (level ?? "normal");
+}
 let _rngState = 0;
 function seedRandom(s) {
     _rngState = s >>> 0;
@@ -976,7 +981,7 @@ function buildBuiltinCaptures(ctx) {
     // STATIC_ENVIRONMENT: capture environment without getfenv/setfenv, freeze it
     const envBootSrc = ctx.staticEnvironment
         ? `do local _G=(_G or {}); local _frozen={}; for _k,_v in pairs(_G) do _frozen[_k]=_v end; setmetatable(_G,{__index=_frozen,__newindex=function() error("STATIC_ENVIRONMENT: global write blocked",0) end}); return _G end`
-        : `return (type(getfenv)=='function' and getfenv(0)) or _G`;
+        : `local _gf=getfenv;if _gf and type(_gf)=="function" then return _gf(0) end return _G`;
     const envBootCodes = Array.from(envBootSrc).map(c => {
         const code = c.charCodeAt(0);
         const m = Math.floor(rng() * 4);
@@ -1014,12 +1019,12 @@ function buildBuiltinCaptures(ctx) {
         }
     }
     lines.push(`end`);
-    // STATIC_ENVIRONMENT: add getfenv/setfenv detection traps
+    // STATIC_ENVIRONMENT: do NOT replace getfenv/setfenv with error stubs.
+    // Roblox Luau doesn't have getfenv/setfenv at all, and replacing them with
+    // error-throwing functions breaks user scripts that legitimately pcall them.
+    // Leave them as-is; the static metatable already blocks new global writes.
     if (ctx.staticEnvironment) {
-        const gfName = encName("getfenv");
-        const sfName = encName("setfenv");
-        lines.push(`${geVar}[${gfName}]=function() error("STATIC_ENVIRONMENT: getfenv blocked",0) end`);
-        lines.push(`${geVar}[${sfName}]=function() error("STATIC_ENVIRONMENT: setfenv blocked",0) end`);
+        // intentionally no-op: keep real getfenv/setfenv (or nil if executor lacks them)
     }
     const nHg = randomName(3);
     const checks = [
@@ -1274,26 +1279,30 @@ function buildVMRuntime(ctx, assignStyle = false) {
         L.push(`local ${n.s3}=${n.code}[${n.ip}+3]`);
     }
     L.push(`${n.ip}=${n.ip}+4`);
-    // DEBUGGER_DETECTION: Periodic debugger attachment check that corrupts VM state
+    // DEBUGGER_DETECTION: Periodic debugger attachment check that corrupts VM state.
+    // For Roblox targets, the debug library is usually absent, so these checks
+    // short-circuit harmlessly. For executors that DO expose debug, the checks
+    // only brick the VM on genuine tamper signals (not on debug merely existing).
     if (ctx.debuggerDetection && ctx.level !== "debug") {
         const dbgInterval = 2000 + Math.floor(rng() * 3000);
         const dbgVar = randomName(3);
         const dbgVariant = Math.floor(rng() * 4);
         if (dbgVariant === 0) {
-            // Check for debug library hooks
-            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _dbg=debug; if _dbg then _dbg.sethook(function() error("DEBUGGER_DETECTED",0) end,"c",0) end end); if ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+            // Detect pre-installed debug hooks. Skip if `debug` is nil (Roblox).
+            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _dbg=debug; if not _dbg then return nil end; local _hk=_dbg.gethook and _dbg.gethook(); if _hk then return true end; return false end); if ${dbgVar}==true then ${n.R}=${n.bTcreate}(0);${n.ip}=#${n.code}+1 end end`);
         }
         else if (dbgVariant === 1) {
-            // Check for getfenv/setfenv tampering (STATIC_ENVIRONMENT violation)
-            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _gef=rawget(_G,"getfenv"); local _sef=rawget(_G,"setfenv"); if _gef and type(_gef)~="function" then error("ENV_TAMPER",0) end; if _sef and type(_sef)~="function" then error("ENV_TAMPER",0) end end); if not ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+            // Check for getfenv/setfenv tampering (replaced with non-function values).
+            // Roblox doesn't have these globals at all — both will be nil → branch skipped.
+            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _gef=rawget(_G,"getfenv"); local _sef=rawget(_G,"setfenv"); if _gef and type(_gef)~="function" then error("ENV_TAMPER",0) end; if _sef and type(_sef)~="function" then error("ENV_TAMPER",0) end end); if ${dbgVar}==false then ${n.R}=${n.bTcreate}(0);${n.ip}=#${n.code}+1 end end`);
         }
         else if (dbgVariant === 2) {
-            // Check for debug.getinfo anomalies
-            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _dbg=debug; if _dbg then local _info=_dbg.getinfo(1); if not _info or type(_info)~="table" then error("DBG_INFO_CORRUPT",0) end end end); if not ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+            // Detect tampered debug.getinfo (returns non-table on legit query).
+            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _dbg=debug; if not _dbg or not _dbg.getinfo then return nil end; local _info=_dbg.getinfo(1); if not _info or type(_info)~="table" then return true end; return false end); if ${dbgVar}==true then ${n.R}=${n.bTcreate}(0);${n.ip}=#${n.code}+1 end end`);
         }
         else {
-            // Check for executor closure detection functions
-            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _chk=iscclosure or islclosure or isexecutorclosure or checkclosure; if _chk then local _fn=function() end; if not _chk(_fn) then error("CLOSURE_CHK_FAIL",0) end end end); if not ${dbgVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end end`);
+            // Check for executor closure detection functions.
+            L.push(`if ${n.ip}%${dbgInterval * 4}<4 then local ${dbgVar}=${n.bPcall}(function() local _chk=iscclosure or islclosure or isexecutorclosure or checkclosure; if _chk then local _f=function() end; if not _chk(_f) then error("CLOSURE_CHK_FAIL",0) end end end); if ${dbgVar}==false then ${n.R}=${n.bTcreate}(0);${n.ip}=#${n.code}+1 end end`);
         }
     }
     if (doMut) {
@@ -1586,7 +1595,7 @@ function buildEnvSetup(ctx) {
     const L = [];
     const targetGlobals = getGlobalsForTarget(ctx.targetVersion);
     if (ctx.level === "debug") {
-        L.push(`local ${n.genv}=(type(getfenv)=="function" and getfenv(0)) or _G`);
+        L.push(`local ${n.genv}=(function() local _gf=getfenv;if _gf and type(_gf)=="function" then return _gf(0) end return _G end)()`);
         const entries = targetGlobals.map(g => `${g}=${g}`).join(",");
         L.push(`local ${n.env}=setmetatable({${entries}},{__index=function(_,k) local ok,v=pcall(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`);
         if (ctx.includeExecutor) {
@@ -1604,7 +1613,7 @@ function buildEnvSetup(ctx) {
     };
     const dec = randomName(4);
     L.push(`local function ${dec}(_t) local _s="";for _i=1,#_t do _s=_s..string.char(${n.bBxor}(_t[_i],${n.bBand}(${envKey}+(_i-1)*${envStep},0xFF))) end;return _s end`);
-    L.push(`local ${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`);
+    L.push(`local ${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("local _gf=getfenv;if _gf and type(_gf)==\"function\" then return _gf(0) end return _G")}))()`);
     L.push(`local ${n.env}=${n.bSetmeta}({},{[${dec}(${encS("__index")})]=function(_,k) local ok,v=${n.bPcall}(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`);
     const allGlobals = ctx.includeExecutor ? [...getGlobalsForTarget(ctx.targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(ctx.targetVersion)];
     for (let si = allGlobals.length - 1; si > 0; si--) {
@@ -1633,7 +1642,7 @@ function buildEnvFragments(ctx) {
     const dec = randomName(4);
     forwardDecls.push(dec, n.genv, n.env);
     fragments.push({ code: `${dec}=function(_t) local _s="";for _i=1,#_t do _s=_s..string.char(${n.bBxor}(_t[_i],${n.bBand}(${envKey}+(_i-1)*${envStep},0xFF))) end;return _s end`, layer: 0 });
-    fragments.push({ code: `${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("return (type(getfenv)=='function' and getfenv(0)) or _G")}))()`, layer: 1 });
+    fragments.push({ code: `${n.genv}=(loadstring or (type(getgenv)=="function" and getgenv().loadstring) or (type(getgenv)=="table" and getgenv.loadstring) or (type(getgenv)=="function" and getgenv().load) or (type(getgenv)=="table" and getgenv.load) or rawget(_G,"loadstring") or rawget(_G,"load") or load)(${dec}(${encS("local _gf=getfenv;if _gf and type(_gf)==\"function\" then return _gf(0) end return _G")}))()`, layer: 1 });
     fragments.push({ code: `${n.env}=${n.bSetmeta}({},{[${dec}(${encS("__index")})]=function(_,k) local ok,v=${n.bPcall}(function() return ${n.genv}[k] end);if ok then return v end;return nil end})`, layer: 2 });
     const allGlobals = ctx.includeExecutor ? [...getGlobalsForTarget(ctx.targetVersion), ...EXECUTOR_GLOBALS] : [...getGlobalsForTarget(ctx.targetVersion)];
     for (let si = allGlobals.length - 1; si > 0; si--) {
@@ -1668,6 +1677,18 @@ function buildDecoderChain(ctx, dK, dP) {
     const V = ctx.layerVariants;
     const fragments = [];
     const forwardDecls = [];
+    // Bit-op aliases that work across Roblox Luau (bit32), vanilla Lua 5.2+ (bit32),
+    // LuaJIT (bit), and barebones Lua 5.1 (polyfill). Without these, the decoder
+    // chain crashes with "attempt to index nil (global 'bit32')" in stripped executors.
+    const nBitBxor = randomName(3);
+    const nBitBand = randomName(3);
+    forwardDecls.push(nBitBxor, nBitBand);
+    const bitBxorInit = `(bit32 and bit32.bxor) or (bit and bit.bxor) or (function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2~=math.floor(b/(2^_i))%2 then r=r+p end p=p*2 end return r end)`;
+    const bitBandInit = `(bit32 and bit32.band) or (bit and bit.band) or (function(a,b) local r,p=0,1 for _i=0,31 do if math.floor(a/(2^_i))%2==1 and math.floor(b/(2^_i))%2==1 then r=r+p end p=p*2 end return r end)`;
+    fragments.push({ code: `local ${nBitBxor}=${bitBxorInit}`, layer: 0 });
+    fragments.push({ code: `local ${nBitBand}=${bitBandInit}`, layer: 0 });
+    const BX = nBitBxor;
+    const BD = nBitBand;
     const nPre = randomName(6);
     const n5 = randomName(6);
     const n4 = randomName(6);
@@ -1684,41 +1705,41 @@ function buildDecoderChain(ctx, dK, dP) {
         const lutName = randomName(4);
         forwardDecls.push(lutName);
         fragments.push({ code: `${lutName}={};for _0k=0,511 do ${lutName}[_0k]=(_0k*${SP}+${SO})%251 end`, layer: 0 });
-        fragments.push({ code: wrapA(n5, `local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=bit32.bxor(_0v[_0j],(${lutName}[(_0j-1)%512]+_0s)%251) end`), layer: 1 });
+        fragments.push({ code: wrapA(n5, `local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=${BX}(_0v[_0j],(${lutName}[(_0j-1)%512]+_0s)%251) end`), layer: 1 });
     }
     else if (V[4] === 1) {
-        fragments.push({ code: wrapA(n5, `local _0s=bit32.band(_0i-1,0xFF);local _0a=${SO}+_0s;for _0j=1,#_0v do _0v[_0j]=bit32.bxor(_0v[_0j],_0a%251);_0a=_0a+${SP} end`), layer: 0 });
+        fragments.push({ code: wrapA(n5, `local _0s=${BD}(_0i-1,0xFF);local _0a=${SO}+_0s;for _0j=1,#_0v do _0v[_0j]=${BX}(_0v[_0j],_0a%251);_0a=_0a+${SP} end`), layer: 0 });
     }
     else {
-        fragments.push({ code: wrapA(n5, `local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=bit32.bxor(_0v[_0j],((_0j-1)*${SP}+${SO}+_0s)%251) end`), layer: 0 });
+        fragments.push({ code: wrapA(n5, `local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=${BX}(_0v[_0j],((_0j-1)*${SP}+${SO}+_0s)%251) end`), layer: 0 });
     }
     const KA = ctx.checkKeyA, KB = ctx.checkKeyB, SA = ctx.checkStepA, SB = ctx.checkStepB;
     const checkBodies = [
-        `local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do local _0h=math.floor((_0j-1)/2);local _0k;if (_0j-1)%2==0 then _0k=bit32.band(${KA}+_0s+_0h*${SA},0xFF) else _0k=bit32.band(${KB}+_0s+_0h*${SB},0xFF) end;_0v[_0j]=bit32.bxor(_0v[_0j],_0k) end`,
-        `local _0s=bit32.band(_0i-1,0xFF);local _0n=#_0v;for _0j=1,_0n,2 do _0v[_0j]=bit32.bxor(_0v[_0j],bit32.band(${KA}+_0s+math.floor((_0j-1)/2)*${SA},0xFF)) end;for _0j=2,_0n,2 do _0v[_0j]=bit32.bxor(_0v[_0j],bit32.band(${KB}+_0s+math.floor((_0j-1)/2)*${SB},0xFF)) end`,
-        `local _0s=bit32.band(_0i-1,0xFF);local _0ea,_0eb=${KA}+_0s,${KB}+_0s;for _0j=1,#_0v do if (_0j-1)%2==0 then _0v[_0j]=bit32.bxor(_0v[_0j],bit32.band(_0ea,0xFF));_0ea=_0ea+${SA} else _0v[_0j]=bit32.bxor(_0v[_0j],bit32.band(_0eb,0xFF));_0eb=_0eb+${SB} end end`,
+        `local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do local _0h=math.floor((_0j-1)/2);local _0k;if (_0j-1)%2==0 then _0k=${BD}(${KA}+_0s+_0h*${SA},0xFF) else _0k=${BD}(${KB}+_0s+_0h*${SB},0xFF) end;_0v[_0j]=${BX}(_0v[_0j],_0k) end`,
+        `local _0s=${BD}(_0i-1,0xFF);local _0n=#_0v;for _0j=1,_0n,2 do _0v[_0j]=${BX}(_0v[_0j],${BD}(${KA}+_0s+math.floor((_0j-1)/2)*${SA},0xFF)) end;for _0j=2,_0n,2 do _0v[_0j]=${BX}(_0v[_0j],${BD}(${KB}+_0s+math.floor((_0j-1)/2)*${SB},0xFF)) end`,
+        `local _0s=${BD}(_0i-1,0xFF);local _0ea,_0eb=${KA}+_0s,${KB}+_0s;for _0j=1,#_0v do if (_0j-1)%2==0 then _0v[_0j]=${BX}(_0v[_0j],${BD}(_0ea,0xFF));_0ea=_0ea+${SA} else _0v[_0j]=${BX}(_0v[_0j],${BD}(_0eb,0xFF));_0eb=_0eb+${SB} end end`,
     ];
     fragments.push({ code: wrapA(n4, checkBodies[V[3]]), layer: 0 });
     const CM = ctx.cascadeMul, CK = ctx.cascadeKey;
     const cascBodies = [
-        `local _0s=bit32.band(_0i-1,0xFF);for _0j=2,#_0v do _0v[_0j]=bit32.bxor(_0v[_0j],bit32.band(_0v[_0j-1]*${CM}+${CK}+_0s,0xFF)) end`,
-        `local _0s=bit32.band(_0i-1,0xFF);local _0p=_0v[1];for _0j=2,#_0v do local _0k=bit32.band(_0p*${CM}+${CK}+_0s,0xFF);_0v[_0j]=bit32.bxor(_0v[_0j],_0k);_0p=_0v[_0j] end`,
+        `local _0s=${BD}(_0i-1,0xFF);for _0j=2,#_0v do _0v[_0j]=${BX}(_0v[_0j],${BD}(_0v[_0j-1]*${CM}+${CK}+_0s,0xFF)) end`,
+        `local _0s=${BD}(_0i-1,0xFF);local _0p=_0v[1];for _0j=2,#_0v do local _0k=${BD}(_0p*${CM}+${CK}+_0s,0xFF);_0v[_0j]=${BX}(_0v[_0j],_0k);_0p=_0v[_0j] end`,
     ];
     fragments.push({ code: wrapA(n3, cascBodies[V[2] % 2]), layer: 0 });
     const HS = ctx.helixSeed, HM = ctx.helixMul;
     if (V[1] === 2) {
         const tblName = randomName(4);
-        fragments.push({ code: wrapA(n2, `local _0s=bit32.band(_0i-1,0xFF);local ${tblName}={};for _0k=1,#_0v do ${tblName}[_0k]=bit32.band(${HS}+_0s+(_0k-1)*${HM},0xFF) end;for _0j=1,#_0v do _0v[_0j]=bit32.band(_0v[_0j]-${tblName}[_0j]+256,0xFF) end`), layer: 0 });
+        fragments.push({ code: wrapA(n2, `local _0s=${BD}(_0i-1,0xFF);local ${tblName}={};for _0k=1,#_0v do ${tblName}[_0k]=${BD}(${HS}+_0s+(_0k-1)*${HM},0xFF) end;for _0j=1,#_0v do _0v[_0j]=${BD}(_0v[_0j]-${tblName}[_0j]+256,0xFF) end`), layer: 0 });
     }
     else if (V[1] === 1) {
-        fragments.push({ code: wrapA(n2, `local _0s=bit32.band(_0i-1,0xFF);local _0a=${HS}+_0s;for _0j=1,#_0v do _0v[_0j]=bit32.band(_0v[_0j]-bit32.band(_0a,0xFF)+256,0xFF);_0a=_0a+${HM} end`), layer: 0 });
+        fragments.push({ code: wrapA(n2, `local _0s=${BD}(_0i-1,0xFF);local _0a=${HS}+_0s;for _0j=1,#_0v do _0v[_0j]=${BD}(_0v[_0j]-${BD}(_0a,0xFF)+256,0xFF);_0a=_0a+${HM} end`), layer: 0 });
     }
     else {
-        fragments.push({ code: wrapA(n2, `local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=bit32.band(_0v[_0j]-bit32.band(${HS}+_0s+(_0j-1)*${HM},0xFF)+256,0xFF) end`), layer: 0 });
+        fragments.push({ code: wrapA(n2, `local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=${BD}(_0v[_0j]-${BD}(${HS}+_0s+(_0j-1)*${HM},0xFF)+256,0xFF) end`), layer: 0 });
     }
     const inv = ctx.sboxInverse;
     if (V[0] === 0) {
-        fragments.push({ code: `${n1}=function(_0K) local _0inv={${inv.join(",")}} for _0i,_0v in ipairs(_0K) do if type(_0v)=="table" then local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=bit32.bxor(_0inv[_0v[_0j]+1],bit32.band(_0s+_0j-1,0xFF)) end end end end`, layer: 0 });
+        fragments.push({ code: `${n1}=function(_0K) local _0inv={${inv.join(",")}} for _0i,_0v in ipairs(_0K) do if type(_0v)=="table" then local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=${BX}(_0inv[_0v[_0j]+1],${BD}(_0s+_0j-1,0xFF)) end end end end`, layer: 0 });
     }
     else if (V[0] === 1) {
         const nLo = randomName(3), nHi = randomName(3), nInv = randomName(3);
@@ -1726,7 +1747,7 @@ function buildDecoderChain(ctx, dK, dP) {
         fragments.push({ code: `${nLo}={${inv.slice(0, 128).join(",")}}`, layer: 0 });
         fragments.push({ code: `${nHi}={${inv.slice(128).join(",")}}`, layer: 0 });
         fragments.push({ code: `${nInv}={};for _0k=1,128 do ${nInv}[_0k]=${nLo}[_0k] end;for _0k=1,128 do ${nInv}[128+_0k]=${nHi}[_0k] end`, layer: 1 });
-        fragments.push({ code: `${n1}=function(_0K) for _0i,_0v in ipairs(_0K) do if type(_0v)=="table" then local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=bit32.bxor(${nInv}[_0v[_0j]+1],bit32.band(_0s+_0j-1,0xFF)) end end end end`, layer: 2 });
+        fragments.push({ code: `${n1}=function(_0K) for _0i,_0v in ipairs(_0K) do if type(_0v)=="table" then local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=${BX}(${nInv}[_0v[_0j]+1],${BD}(_0s+_0j-1,0xFF)) end end end end`, layer: 2 });
     }
     else {
         const chunks = [inv.slice(0, 64), inv.slice(64, 128), inv.slice(128, 192), inv.slice(192)];
@@ -1752,7 +1773,7 @@ function buildDecoderChain(ctx, dK, dP) {
         else {
             fragments.push({ code: `${nInv}={};for _0k=1,64 do ${nInv}[_0k]=${cNames[0]}[_0k] end;for _0k=1,64 do ${nInv}[64+_0k]=${cNames[1]}[_0k] end;for _0k=1,64 do ${nInv}[128+_0k]=${cNames[2]}[_0k] end;for _0k=1,64 do ${nInv}[192+_0k]=${cNames[3]}[_0k] end`, layer: 1 });
         }
-        fragments.push({ code: `${n1}=function(_0K) for _0i,_0v in ipairs(_0K) do if type(_0v)=="table" then local _0s=bit32.band(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=bit32.bxor(${nInv}[_0v[_0j]+1],bit32.band(_0s+_0j-1,0xFF)) end end end end`, layer: 2 });
+        fragments.push({ code: `${n1}=function(_0K) for _0i,_0v in ipairs(_0K) do if type(_0v)=="table" then local _0s=${BD}(_0i-1,0xFF);for _0j=1,#_0v do _0v[_0j]=${BX}(${nInv}[_0v[_0j]+1],${BD}(_0s+_0j-1,0xFF)) end end end end`, layer: 2 });
     }
     fragments.push({ code: `${nPre}=function(_0K) for _0i=1,#_0K do if type(_0K[_0i])=="string" then local _0s=_0K[_0i];local _0t={};for _0j=1,#_0s do _0t[_0j]=string.byte(_0s,_0j) end;_0K[_0i]=_0t end end end`, layer: 0 });
     if (Math.floor(rng() * 2) === 0) {
@@ -1763,10 +1784,10 @@ function buildDecoderChain(ctx, dK, dP) {
     }
     const junkCount = 3 + Math.floor(rng() * 4);
     const junkTemplates = [
-        (nm) => wrapA(nm, `for _0j=1,#_0v do _0v[_0j]=bit32.bxor(_0v[_0j],bit32.band(_0j*${1 + Math.floor(rng() * 200)}+${Math.floor(rng() * 200)},0xFF)) end`),
-        (nm) => wrapA(nm, `for _0j=2,#_0v do _0v[_0j]=bit32.band(_0v[_0j]+_0v[_0j-1]*${1 + Math.floor(rng() * 7)}+${Math.floor(rng() * 200)},0xFF) end`),
-        (nm) => wrapA(nm, `local _0a=${Math.floor(rng() * 200)};for _0j=1,#_0v do _0v[_0j]=bit32.band(_0v[_0j]-bit32.band(_0a,0xFF)+256,0xFF);_0a=_0a+${1 + Math.floor(rng() * 30)} end`),
-        (nm) => wrapA(nm, `for _0j=1,#_0v do _0v[_0j]=bit32.bxor(_0v[_0j],((_0j-1)*${SPIRAL_PRIMES[Math.floor(rng() * SPIRAL_PRIMES.length)]}+${Math.floor(rng() * 200)})%251) end`),
+        (nm) => wrapA(nm, `for _0j=1,#_0v do _0v[_0j]=${BX}(_0v[_0j],${BD}(_0j*${1 + Math.floor(rng() * 200)}+${Math.floor(rng() * 200)},0xFF)) end`),
+        (nm) => wrapA(nm, `for _0j=2,#_0v do _0v[_0j]=${BD}(_0v[_0j]+_0v[_0j-1]*${1 + Math.floor(rng() * 7)}+${Math.floor(rng() * 200)},0xFF) end`),
+        (nm) => wrapA(nm, `local _0a=${Math.floor(rng() * 200)};for _0j=1,#_0v do _0v[_0j]=${BD}(_0v[_0j]-${BD}(_0a,0xFF)+256,0xFF);_0a=_0a+${1 + Math.floor(rng() * 30)} end`),
+        (nm) => wrapA(nm, `for _0j=1,#_0v do _0v[_0j]=${BX}(_0v[_0j],((_0j-1)*${SPIRAL_PRIMES[Math.floor(rng() * SPIRAL_PRIMES.length)]}+${Math.floor(rng() * 200)})%251) end`),
     ];
     const junkNames = [];
     for (let i = 0; i < junkCount; i++) {
@@ -2522,7 +2543,7 @@ function wrapCustomCipher(source, layerOpts) {
                 return `0x${code.toString(16)}`;
             return `${code}`;
         }).join(',');
-        const envExpr = `(function() local ${gfLocal}=getfenv;return (type(${gfLocal})==${chVar}(${fnCodes}) and ${gfLocal}(0) or _G) end)()`;
+        const envExpr = `(function() local ${gfLocal}=getfenv;if ${gfLocal} and type(${gfLocal})==${chVar}(${fnCodes}) then return ${gfLocal}(0) end return _G end)()`;
         const p = Math.floor(rng() * 3);
         if (p === 0)
             return `${envExpr}[${chVar}(${codes})]`;
@@ -2672,7 +2693,7 @@ function wrapCustomCipher(source, layerOpts) {
     const cases = [
         { op: OP_STR, code: `${vmRes}[${vmIns}[2]]=${vmEs}[${vmDk}(${vmIns}[3])]` },
         { op: OP_ENV, code: (() => {
-                const envSrc = `return (type(getfenv)=='function' and getfenv(0)) or _G`;
+                const envSrc = `local _gf=getfenv;if _gf and type(_gf)=="function" then return _gf(0) end return _G`;
                 const envCodes = Array.from(envSrc).map(c => {
                     const code = c.charCodeAt(0);
                     const m = Math.floor(rng() * 3);
@@ -3083,7 +3104,7 @@ function serializeBytecodeAsBinary(chunk, ctx) {
     return new Uint8Array(parts);
 }
 export function generateRegVM(chunk, options = {}) {
-    const level = options.level ?? "normal";
+    const level = normalizeLevel(options.level);
     const seed = options.polymorphicSeed || generateDynamicSeed(chunk);
     seedRandom(seed);
     resetNames();

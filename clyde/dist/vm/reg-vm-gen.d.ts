@@ -1,8 +1,9 @@
 import type { RegBytecodeChunk } from "./bytecode.js";
 export type RegVMLevel = "debug" | "normal" | "max";
+export type RegVMLevelInput = RegVMLevel | "maximum";
 export type RegFeatureFlag = "opcodeShuffle" | "stringEncoding" | "constantFolding" | "minification" | "fakeHandlers" | "handlerNoise" | "antiDebug" | "antiTamper" | "controlFlowFlattening" | "opcodeFusion" | "deadCodeInjection" | "syntaxInterpreter" | "customCipher" | "stubCompression" | "vmNesting" | "staticEnvironment" | "debuggerDetection" | "bytecodeCompression" | "targetVersionPinning";
 export interface RegVMGenOptions {
-    level?: RegVMLevel;
+    level?: RegVMLevelInput;
     executorGlobals?: boolean;
     polymorphicSeed?: number;
     disableFeatures?: RegFeatureFlag[];

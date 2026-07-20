@@ -11,6 +11,7 @@ export interface AntiDebugInjectorOptions {
   stackFrameCheck?: boolean;
   environmentLock?: boolean;
   crashOnDetection?: boolean;
+  target?: "roblox" | "lua51" | "lua54" | "luau" | "universal";
 }
 
 const defaultLoc: SourceLocation = {
@@ -171,11 +172,24 @@ function pcallCallExp(callee: Expression, args: Expression[], loc: SourceLocatio
 function makeHookDetection(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
   const varOk = `_ad${Math.floor(rng() * 100000)}`;
   const varResult = `_ad${Math.floor(rng() * 100000)}`;
+  const dbgLocal = `_dbg${Math.floor(rng() * 100000)}`;
   const stmts: Statement[] = [
     {
       type: "LocalStatement",
+      vars: [{ name: dbgLocal }],
+      values: [idExp("debug", loc)],
+      loc,
+    },
+    {
+      type: "LocalStatement",
       vars: [{ name: varOk }, { name: varResult }],
-      values: [pcallMemberExp(idExp("debug", loc), "gethook", loc)],
+      values: [{
+        type: "BinaryExpression",
+        operator: "and",
+        left: idExp(dbgLocal, loc),
+        right: pcallMemberExp(idExp(dbgLocal, loc), "gethook", loc),
+        loc,
+      }],
       loc,
     },
   ];
@@ -183,7 +197,7 @@ function makeHookDetection(loc: SourceLocation, rng: () => number, intensity: nu
   if (intensity >= 0.5) {
     const notNil = binExp(typeCallExp(idExp(varResult, loc), loc), "~=", nilExp(loc), loc);
     const truthy = idExp(varResult, loc);
-    stmts.push(ifStmt(binExp(notNil, "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
+    stmts.push(ifStmt(binExp(binExp(idExp(dbgLocal, loc), "and", notNil, loc), "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
   }
 
   return stmts;
@@ -192,12 +206,25 @@ function makeHookDetection(loc: SourceLocation, rng: () => number, intensity: nu
 function makeCallDepthCheck(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
   const varOk = `_ad${Math.floor(rng() * 100000)}`;
   const varName = `_ad${Math.floor(rng() * 100000)}`;
+  const dbgLocal = `_dbg${Math.floor(rng() * 100000)}`;
   const depthArg = mbaInt(5, rng, loc);
   const stmts: Statement[] = [
     {
       type: "LocalStatement",
+      vars: [{ name: dbgLocal }],
+      values: [idExp("debug", loc)],
+      loc,
+    },
+    {
+      type: "LocalStatement",
       vars: [{ name: varOk }, { name: varName }],
-      values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [depthArg, strExp("n", loc)], loc)],
+      values: [{
+        type: "BinaryExpression",
+        operator: "and",
+        left: idExp(dbgLocal, loc),
+        right: pcallCallExp(memberExp(idExp(dbgLocal, loc), "info", loc), [depthArg, strExp("n", loc)], loc),
+        loc,
+      }],
       loc,
     },
   ];
@@ -205,13 +232,14 @@ function makeCallDepthCheck(loc: SourceLocation, rng: () => number, intensity: n
   if (intensity >= 0.55) {
     const notNil = binExp(typeCallExp(idExp(varName, loc), loc), "~=", nilExp(loc), loc);
     const truthy = idExp(varName, loc);
-    stmts.push(ifStmt(binExp(notNil, "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
+    stmts.push(ifStmt(binExp(binExp(idExp(dbgLocal, loc), "and", notNil, loc), "and", truthy, loc), makeTamperBlock(loc, rng, intensity), loc));
   }
 
   return stmts;
 }
 
 function makeStackFrameCheck(loc: SourceLocation, rng: () => number, intensity: number): Statement[] {
+  const dbgLocal = `_dbg${Math.floor(rng() * 100000)}`;
   const varOk1 = `_ad${Math.floor(rng() * 100000)}`;
   const varName1 = `_ad${Math.floor(rng() * 100000)}`;
   const varOk2 = `_ad${Math.floor(rng() * 100000)}`;
@@ -221,14 +249,32 @@ function makeStackFrameCheck(loc: SourceLocation, rng: () => number, intensity: 
   const stmts: Statement[] = [
     {
       type: "LocalStatement",
+      vars: [{ name: dbgLocal }],
+      values: [idExp("debug", loc)],
+      loc,
+    },
+    {
+      type: "LocalStatement",
       vars: [{ name: varOk1 }, { name: varName1 }],
-      values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame1Arg, strExp("n", loc)], loc)],
+      values: [{
+        type: "BinaryExpression",
+        operator: "and",
+        left: idExp(dbgLocal, loc),
+        right: pcallCallExp(memberExp(idExp(dbgLocal, loc), "info", loc), [frame1Arg, strExp("n", loc)], loc),
+        loc,
+      }],
       loc,
     },
     {
       type: "LocalStatement",
       vars: [{ name: varOk2 }, { name: varName2 }],
-      values: [pcallCallExp(memberExp(idExp("debug", loc), "info", loc), [frame2Arg, strExp("n", loc)], loc)],
+      values: [{
+        type: "BinaryExpression",
+        operator: "and",
+        left: idExp(dbgLocal, loc),
+        right: pcallCallExp(memberExp(idExp(dbgLocal, loc), "info", loc), [frame2Arg, strExp("n", loc)], loc),
+        loc,
+      }],
       loc,
     },
   ];
@@ -262,7 +308,15 @@ export function injectAntiDebug(ast: Chunk, options: AntiDebugInjectorOptions = 
   const seed = options.seed ?? 0;
   const rng = createRng(seed);
   const intensity = Math.min(1, Math.max(0, options.intensity ?? 0.4));
-  const useDebug = options.useDebugLibrary !== false;
+
+  // Roblox Luau (and most executors) lacks the `debug` library entirely.
+  // Default to skipping debug.* checks when targeting Roblox.
+  const target = options.target ?? "universal";
+  const isRobloxTarget = target === "roblox" || target === "universal" || target === "luau";
+  const useDebug = options.useDebugLibrary !== undefined
+    ? options.useDebugLibrary
+    : !isRobloxTarget;
+
   const crashOnDetect = options.crashOnDetection !== false;
 
   const adjustedIntensity = crashOnDetect ? intensity : Math.min(intensity, 0.49);

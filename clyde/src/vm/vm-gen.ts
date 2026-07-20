@@ -2276,6 +2276,10 @@ interface NameMap {
   resolveK: string;
   ctxBit: string;
   jumpKey: string;
+  soaI: string;
+  soaA: string;
+  soaB: string;
+  soaC: string;
 }
 
 function createNames(level: VMGenLevel): NameMap {
@@ -2300,6 +2304,7 @@ function createNames(level: VMGenLevel): NameMap {
       resolveK: "resolveK",
       ctxBit: "ctxBit",
       jumpKey: "jumpKey",
+      soaI: "_soa_I", soaA: "_soa_A", soaB: "_soa_B", soaC: "_soa_C",
     };
   }
   return {
@@ -2322,6 +2327,7 @@ function createNames(level: VMGenLevel): NameMap {
     resolveK: randomName(5),
     ctxBit: randomName(3),
     jumpKey: randomName(4),
+    soaI: randomName(4), soaA: randomName(4), soaB: randomName(4), soaC: randomName(4),
   };
 }
 
@@ -2470,6 +2476,135 @@ function buildHandlerTemplates(n: NameMap, doNonLinearJumps: boolean = false, pr
   h[65] = `function() local _a=${code}[${ip}];${ip}=${ip}+1;local _=${stack}[_a] or 0 end`;
 
   h[66] = `function() local _a=${code}[${ip}];${ip}=${ip}+1;local _b=${code}[${ip}];${ip}=${ip}+1;local _=bit32.bxor(_a,_b) end`;
+
+  return h;
+}
+
+function buildHandlerTemplatesSoA(n: NameMap, doNonLinearJumps: boolean = false, protoKeys: { pK: string; pC: string; pP: string; pU: string; pN: string } = { pK: "K", pC: "C", pP: "P", pU: "U", pN: "nParams" }): Record<number, string> {
+  const h: Record<number, string> = {};
+  const { pK, pC, pP, pU, pN } = protoKeys;
+  const {
+    K, code, ip, push, pop, top, stack, stackTop, env, protos,
+    upvalues, varargs, varargCount, locals, localBoxes,
+    callBases, callBaseTop, getLocal, setLocal, boxLocal,
+    getMM, arithMM, doReturn, retFromStack, retBase, retTop,
+    retN, retPack, run, resolveK, soaI, soaA, soaB, soaC
+  } = n;
+
+  h[0] = `function() end`;
+
+  h[1] = `function() ${push}(nil) end`;
+  h[2] = `function() ${push}(true) end`;
+  h[3] = `function() ${push}(false) end`;
+
+  h[4] = `function() ${push}(${resolveK}(${soaC}[${ip}]+1));${ip}=${ip}+1 end`;
+  h[5] = `function() ${push}(${getLocal}(${soaA}[${ip}]));${ip}=${ip}+1 end`;
+  h[6] = `function() ${setLocal}(${soaA}[${ip}],${pop}());${ip}=${ip}+1 end`;
+  h[7] = `function() ${push}(${env}[${resolveK}(${soaC}[${ip}]+1)]);${ip}=${ip}+1 end`;
+  h[8] = `function() ${env}[${resolveK}(${soaC}[${ip}]+1)]=${pop}();${ip}=${ip}+1 end`;
+
+  h[9] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return x+y end,"__add")) end`;
+  h[10] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return x-y end,"__sub")) end`;
+  h[11] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return x*y end,"__mul")) end`;
+  h[12] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return x/y end,"__div")) end`;
+  h[13] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return x%y end,"__mod")) end`;
+  h[14] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return x^y end,"__pow")) end`;
+
+  h[15] = `function() local b,a=${pop}(),${pop}();local ok,r=pcall(function() return a..b end);if ok then ${push}(r) else ${push}(tostring(a)..tostring(b)) end end`;
+
+  h[16] = `function() local b,a=${pop}(),${pop}();${push}(a==b) end`;
+  h[17] = `function() local b,a=${pop}(),${pop}();${push}(a~=b) end`;
+  h[18] = `function() local b,a=${pop}(),${pop}();${push}(a<b) end`;
+  h[19] = `function() local b,a=${pop}(),${pop}();${push}(a<=b) end`;
+  h[20] = `function() local b,a=${pop}(),${pop}();${push}(a>b) end`;
+  h[21] = `function() local b,a=${pop}(),${pop}();${push}(a>=b) end`;
+
+  h[22] = `function() local b,a=${pop}(),${pop}();${push}(a and b) end`;
+  h[23] = `function() local b,a=${pop}(),${pop}();${push}(a or b) end`;
+
+  h[24] = `function() ${push}(not ${pop}()) end`;
+  h[25] = `function() ${push}(-${pop}()) end`;
+  h[26] = `function() ${push}(#${pop}()) end`;
+  h[27] = `function() ${push}({}) end`;
+  h[28] = `function() local k,t=${pop}(),${pop}();${push}(t[k]) end`;
+  h[29] = `function() local v,k,t=${pop}(),${pop}(),${pop}();t[k]=v end`;
+
+  h[30] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;local args={};for i=1,n do args[n-i+1]=${pop}() end;local f=${pop}();if type(f)~="function" then local mm=${getMM}(f,"__call");if mm then table.insert(args,1,f);n=n+1;f=mm else error("attempt to call a "..type(f).." value") end end;local r;if n==0 then r={f()} else r={f(table.unpack(args,1,n))} end;${push}(r[1]) end`;
+
+  h[31] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;${doReturn}=true;if n==0 then ${retN}=0 elseif n>0 then if n>${stackTop} then n=${stackTop} end;${retN}=n;${retFromStack}=true;${retTop}=${stackTop};${retBase}=${stackTop}-n else ${retN}=${stackTop};${retFromStack}=true;${retTop}=${stackTop};${retBase}=0 end end`;
+
+  h[32] = doNonLinearJumps
+    ? `function() ${ip}=bit32.bxor(${soaB}[${ip}],${n.jumpKey})+1 end`
+    : `function() ${ip}=${soaB}[${ip}]+1 end`;
+
+  h[33] = doNonLinearJumps
+    ? `function() local target=bit32.bxor(${soaB}[${ip}],${n.jumpKey});${ip}=${ip}+1;if not ${pop}() then ${ip}=target+1 end end`
+    : `function() local target=${soaB}[${ip}];${ip}=${ip}+1;if not ${pop}() then ${ip}=target+1 end end`;
+
+  h[34] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;for _=1,n do ${pop}() end end`;
+
+  h[35] = `function() local pi=${soaA}[${ip}]\n${ip}=${ip}+1\nlocal P=${protos}[pi]\nif P then\nlocal _r,Kp,Cp=${run},P.${pK} or ${K},P.${pC} or {}\nlocal nU={}\nif P.${pU} then for ui,ud in ipairs(P.${pU}) do local iL,idx=ud[1],ud[2]\nif iL==1 then nU[ui]=${boxLocal}(idx) else nU[ui]=${upvalues}[idx+1] end end end\nlocal nP=P.${pN} or 0\n${push}(function(...)\nlocal a={...}\nlocal ac=select("#",...)\nlocal L={}\nL.n=nP\nfor i=1,(ac<nP and ac or nP) do L[i-1]=a[i] end\nlocal va={}\nif ac>nP then for i=nP+1,ac do va[i-nP]=a[i] end end\nva.n=ac-nP\nreturn _r(Kp,Cp,${env},P.${pP} or {},L,nU,va)\nend)\nelse ${push}(nil) end end`;
+
+  h[36] = `function() ${push}(${top}()) end`;
+
+  h[37] = `function() local ui=${soaA}[${ip}];${ip}=${ip}+1;local box=${upvalues}[ui+1];${push}(box and box[1] or nil) end`;
+  h[38] = `function() local ui=${soaA}[${ip}];${ip}=${ip}+1;local box=${upvalues}[ui+1];if box then box[1]=${pop}() else ${pop}() end end`;
+
+  h[39] = `function() local na=${soaA}[${ip}];${ip}=${ip}+1;local nr=${soaB}[${ip}];${ip}=${ip}+1;local args={};for i=1,na do args[na-i+1]=${pop}() end;local f=${pop}();if type(f)~="function" then local mm=${getMM}(f,"__call");if mm then table.insert(args,1,f);na=na+1;f=mm else error("attempt to call a "..type(f).." value") end end;local r;if na==0 then r=table.pack(f()) else r=table.pack(f(table.unpack(args,1,na))) end;local rn=nr<0 and r.n or nr;for i=1,rn do ${push}(r[i]) end end`;
+
+  h[40] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;if n<0 then for i=1,${varargCount} do ${push}(${varargs}[i]) end else for i=1,n do ${push}(${varargs}[i]) end end end`;
+
+  h[41] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;local args={};for j=n,1,-1 do args[j]=${pop}() end;local f=${pop}();if type(f)~="function" then local mm=${getMM}(f,"__call");if mm then table.insert(args,1,f);n=n+1;f=mm end end;${doReturn}=true;${retPack}=table.pack(f(table.unpack(args,1,n))) end`;
+
+  h[42] = doNonLinearJumps
+    ? `function() local off=bit32.bxor(${soaB}[${ip}],${n.jumpKey});${ip}=${ip}+1;local step=${pop}();local limit=${pop}();local init=${pop}();${push}(init);${push}(limit);${push}(step);if step>=0 then if init>limit then ${ip}=off+1 end else if init<limit then ${ip}=off+1 end end end`
+    : `function() local off=${soaB}[${ip}];${ip}=${ip}+1;local step=${pop}();local limit=${pop}();local init=${pop}();${push}(init);${push}(limit);${push}(step);if step>=0 then if init>limit then ${ip}=off+1 end else if init<limit then ${ip}=off+1 end end end`;
+
+  h[43] = doNonLinearJumps
+    ? `function() local off=bit32.bxor(${soaB}[${ip}],${n.jumpKey});${ip}=${ip}+1;local step=${stack}[${stackTop}];local i=${stack}[${stackTop}-2]+step;${stack}[${stackTop}-2]=i;local limit=${stack}[${stackTop}-1];if step>=0 then if i<=limit then ${ip}=off+1 end else if i>=limit then ${ip}=off+1 end end end`
+    : `function() local off=${soaB}[${ip}];${ip}=${ip}+1;local step=${stack}[${stackTop}];local i=${stack}[${stackTop}-2]+step;${stack}[${stackTop}-2]=i;local limit=${stack}[${stackTop}-1];if step>=0 then if i<=limit then ${ip}=off+1 end else if i>=limit then ${ip}=off+1 end end end`;
+
+  h[44] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;local parts={};for i=1,n do parts[n-i+1]=tostring(${pop}()) end;${push}(table.concat(parts)) end`;
+  h[45] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;for _=1,n do ${push}(nil) end end`;
+
+  h[46] = `function() ${callBaseTop}=${callBaseTop}+1;${callBases}[${callBaseTop}]=${stackTop} end`;
+
+  h[47] = `function() local nr=${soaB}[${ip}];${ip}=${ip}+1;local base=${callBases}[${callBaseTop}];${callBaseTop}=${callBaseTop}-1;local f=${stack}[base+1];local na=${stackTop}-base-1;local args={};for i=1,na do args[i]=${stack}[base+1+i] end;${stackTop}=base;if type(f)~="function" then local mm=${getMM}(f,"__call");if mm then table.insert(args,1,f);na=na+1;f=mm else error("attempt to call a "..type(f).." value") end end;local r;if na==0 then r=table.pack(f()) else r=table.pack(f(table.unpack(args,1,na))) end;local rn=nr<0 and r.n or nr;for i=1,rn do ${push}(r[i]) end end`;
+
+  h[48] = `function() local b,a=${pop}(),${pop}();${push}(${arithMM}(a,b,function(x,y) return math.floor(x/y) end,"__idiv")) end`;
+
+  h[49] = `function() local slot=${soaA}[${ip}];${ip}=${ip}+1;local box=${localBoxes}[slot];if box then ${locals}[slot]=box[1];${localBoxes}[slot]=nil end end`;
+
+  h[50] = `function() local startIdx=${soaA}[${ip}];${ip}=${ip}+1;local base=${callBases}[${callBaseTop}];${callBaseTop}=${callBaseTop}-1;local tbl=${stack}[base];local idx=startIdx;for i=base+1,${stackTop} do tbl[idx]=${stack}[i];idx=idx+1 end;${stackTop}=base;${stack}[${stackTop}]=tbl end`;
+
+  h[51] = `function() local a=${stack}[${stackTop}];${stack}[${stackTop}]=${stack}[${stackTop}-1];${stack}[${stackTop}-1]=a end`;
+
+  h[52] = `function() local nameIdx=${soaC}[${ip}];${ip}=${ip}+1;local methodName=${resolveK}(nameIdx+1);local obj=${pop}();local method=obj[methodName];${push}(obj);${push}(method);local b,a=${pop}(),${pop}();${push}(b);${push}(a) end`;
+
+  h[53] = doNonLinearJumps
+    ? `function() local nVars=${soaA}[${ip}];${ip}=${ip}+1;local target=bit32.bxor(${soaB}[${ip}],${n.jumpKey});${ip}=${ip}+1;local iter=${stack}[${stackTop}-2];local state=${stack}[${stackTop}-1];local ctl=${stack}[${stackTop}];local r={iter(state,ctl)};for i=1,nVars do ${push}(r[i]) end;if r[1]~=nil then ${stack}[${stackTop}-nVars]= r[1] else ${ip}=target+1 end end`
+    : `function() local nVars=${soaA}[${ip}];${ip}=${ip}+1;local target=${soaB}[${ip}];${ip}=${ip}+1;local iter=${stack}[${stackTop}-2];local state=${stack}[${stackTop}-1];local ctl=${stack}[${stackTop}];local r={iter(state,ctl)};for i=1,nVars do ${push}(r[i]) end;if r[1]~=nil then ${stack}[${stackTop}-nVars]= r[1] else ${ip}=target+1 end end`;
+
+  h[54] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;local args={};for i=1,n do args[n-i+1]=${pop}() end;local f=${pop}();local results;if n==0 then results=table.pack(pcall(f)) else results=table.pack(pcall(f,table.unpack(args,1,n))) end;local ok=results[1];${push}(ok);if ok then for i=2,results.n do ${push}(results[i]) end else ${push}(results[2]) end end`;
+
+  h[55] = `function() local n=${soaA}[${ip}];${ip}=${ip}+1;local args={};for i=1,n do args[n-i+1]=${pop}() end;local handler=${pop}();local f=${pop}();local results;if n==0 then results=table.pack(xpcall(f,handler)) else results=table.pack(xpcall(f,handler,table.unpack(args,1,n))) end;local ok=results[1];${push}(ok);for i=2,results.n do ${push}(results[i]) end end`;
+
+  h[56] = `function() local iS=${soaA}[${ip}];${ip}=${ip}+1;local sS=${soaB}[${ip}];${ip}=${ip}+1;local vS=${soaC}[${ip}];${ip}=${ip}+1;local it=${getLocal}(iS);if type(it)=="table" then local ok2,mt=pcall(getmetatable,it);if ok2 and type(mt)=="table" and mt.__iter then local fn=mt.__iter(it);${setLocal}(iS,fn) elseif ok2 and type(mt)=="table" and mt.__call then else ${setLocal}(iS,next);${setLocal}(sS,it);${setLocal}(vS,nil) end end end`;
+
+  h[57] = `function() local a=${soaA}[${ip}];${ip}=${ip}+1;local b=${soaB}[${ip}];${ip}=${ip}+1;local c=${soaC}[${ip}];${ip}=${ip}+1;${setLocal}(c,${getLocal}(a)+${getLocal}(b)) end`;
+  h[58] = `function() local a=${soaA}[${ip}];${ip}=${ip}+1;local b=${soaB}[${ip}];${ip}=${ip}+1;local c=${soaC}[${ip}];${ip}=${ip}+1;${setLocal}(c,${getLocal}(a)-${getLocal}(b)) end`;
+  h[59] = `function() local a=${soaA}[${ip}];${ip}=${ip}+1;local b=${soaB}[${ip}];${ip}=${ip}+1;local c=${soaC}[${ip}];${ip}=${ip}+1;${setLocal}(c,${getLocal}(a)*${getLocal}(b)) end`;
+
+  h[60] = `function() local k=${soaC}[${ip}];${ip}=${ip}+1;local s=${soaA}[${ip}];${ip}=${ip}+1;${setLocal}(s,${resolveK}(k+1)) end`;
+  h[61] = `function() local a=${soaA}[${ip}];${ip}=${ip}+1;local b=${soaB}[${ip}];${ip}=${ip}+1;${setLocal}(b,${getLocal}(a)) end`;
+  h[62] = `function() local a=${soaA}[${ip}];${ip}=${ip}+1;local k=${soaC}[${ip}];${ip}=${ip}+1;local c=${soaB}[${ip}];${ip}=${ip}+1;${setLocal}(c,${getLocal}(a)+${resolveK}(k+1)) end`;
+  h[63] = `function() local a=${soaA}[${ip}];${ip}=${ip}+1;local b=${soaB}[${ip}];${ip}=${ip}+1;local c=${soaC}[${ip}];${ip}=${ip}+1;${setLocal}(c,${getLocal}(a)..${getLocal}(b)) end`;
+
+  h[67] = `function() local _a=${soaI}[${ip}];${ip}=${ip}+1;if ${n.ctxBit}==0 then ${push}(${getLocal}(_a)) else ${push}(${resolveK}(_a+1)) end end`;
+
+  h[64] = `function() local _=${stackTop} end`;
+  h[65] = `function() local _a=${soaI}[${ip}];${ip}=${ip}+1;local _=${stack}[_a] or 0 end`;
+  h[66] = `function() local _a=${soaI}[${ip}];${ip}=${ip}+1;local _b=${soaI}[${ip}];${ip}=${ip}+1;local _=bit32.bxor(_a,_b) end`;
 
   return h;
 }
@@ -2727,6 +2862,7 @@ function buildVMFunction(
   doPlatformLock: boolean = false,
   doIntegrityRollup: boolean = false,
   doStackCanary: boolean = false,
+  soaEnabled: boolean = false,
 ): string {
   const doLazyDecode = lazyBaseKey !== 0;
   const doStringPools = poolsVarName !== "";
@@ -2737,7 +2873,10 @@ function buildVMFunction(
   const traceEntryPCName = isTraceMode ? randomName(3) : "";
   const traceStateName = isTraceMode ? randomName(3) : "";
   const traceFuncName = isTraceMode ? `${n.run}_tr${traceId}` : "";
-  const handlers = buildHandlerTemplates(n, doJumpEnc, protoKeys);
+  const handlers = soaEnabled
+    ? buildHandlerTemplatesSoA(n, doJumpEnc, protoKeys)
+    : buildHandlerTemplates(n, doJumpEnc, protoKeys);
+  const codeRef = soaEnabled ? n.soaI : n.code;
   const lines: string[] = [];
 
   if (doStringPools) {
@@ -3608,6 +3747,13 @@ function buildVMFunction(
 
 export type VMGenLevel = "debug" | "normal" | "max";
 
+export type VMGenLevelInput = VMGenLevel | "maximum";
+
+function normalizeVMLevel(level: VMGenLevelInput | undefined): VMGenLevel {
+  if (level === "maximum") return "max";
+  return (level ?? "normal") as VMGenLevel;
+}
+
 export type FeatureFlag =
   | "fakeHandlers" | "opaquePredicates" | "cff"
   | "handlerMutation" | "handlerNoise" | "antiDebug"
@@ -3620,7 +3766,7 @@ export type FeatureFlag =
 
 export interface VMGenOptions {
 
-  level?: VMGenLevel;
+  level?: VMGenLevelInput;
 
   executorGlobals?: boolean;
 
@@ -3843,7 +3989,7 @@ export function generateVM(chunk: BytecodeChunk, options: VMGenOptions = {}): st
     }
   }
 
-  const level = options.level ?? "normal";
+  const level = normalizeVMLevel(options.level as VMGenLevelInput | undefined);
   const includeExecutor = options.executorGlobals ?? (level !== "debug");
   const doShuffle = level !== "debug";
   const encodeStrings = level !== "debug";

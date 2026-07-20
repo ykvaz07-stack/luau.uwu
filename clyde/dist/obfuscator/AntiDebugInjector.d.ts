@@ -9,6 +9,7 @@ export interface AntiDebugInjectorOptions {
     stackFrameCheck?: boolean;
     environmentLock?: boolean;
     crashOnDetection?: boolean;
+    target?: "roblox" | "lua51" | "lua54" | "luau" | "universal";
 }
 export declare function injectAntiDebug(ast: Chunk, options?: AntiDebugInjectorOptions): Chunk;
 //# sourceMappingURL=AntiDebugInjector.d.ts.map

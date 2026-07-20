@@ -14,7 +14,7 @@ interface ObfuscateRequest {
   script_id: string;
   options?: {
     vmType?: "none" | "stack" | "register";
-    vmLevel?: "debug" | "normal" | "maximum";
+    vmLevel?: "debug" | "normal" | "max" | "maximum";
     perfLevel?: 1 | 2 | 3;
     encodeStrings?: boolean;
     scramble?: boolean;
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
     const opts = {
       vmType: "register" as const,
-      vmLevel: "maximum" as "debug" | "normal" | "maximum",
+      vmLevel: "max" as "debug" | "normal" | "max" | "maximum",
       perfLevel: 3 as 1|2|3,
       ...body.options,
     };
