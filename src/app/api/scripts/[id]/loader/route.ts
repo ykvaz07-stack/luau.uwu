@@ -6,6 +6,9 @@ import {
   printChunk,
 } from "../../../../../../clyde/dist/index.js";
 
+
+export const runtime = "edge";
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

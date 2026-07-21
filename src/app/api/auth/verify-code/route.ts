@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { isDisposableEmail, isPlusAddressedEmail } from "@/lib/anti-abuse";
 import { isRateLimitExempt } from "@/lib/admin-check";
 
+
+export const runtime = "edge";
+
 export async function POST(request: Request) {
   try {
     const { email, code, password, clientIp } = await request.json();

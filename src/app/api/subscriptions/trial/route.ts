@@ -3,6 +3,9 @@ import { getAuthUser, getAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
 import { isRateLimitExempt } from "@/lib/admin-check";
 
+
+export const runtime = "edge";
+
 export async function GET() {
   try {
     const user = await getAuthUser();

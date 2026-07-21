@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isDisposableEmail, isPlusAddressedEmail } from "@/lib/anti-abuse";
 
+
+export const runtime = "edge";
+
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();

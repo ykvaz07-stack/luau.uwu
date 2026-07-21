@@ -1,8 +1,9 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-let client: ReturnType<typeof createBrowserClient> | null = null;
+type SupabaseClient = ReturnType<typeof createSupabaseClient>;
+let client: SupabaseClient | null = null;
 
-export function createClient() {
+export function createClient(): SupabaseClient {
   if (client) return client;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,12 +13,14 @@ export function createClient() {
     console.warn(
       "Supabase not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local"
     );
-    return null as unknown as ReturnType<typeof createBrowserClient>;
+    return null as unknown as SupabaseClient;
   }
 
-  client = createBrowserClient(supabaseUrl, supabaseKey, {
-    cookieOptions: {
-      maxAge: 60 * 60 * 24 * 365 * 10,
+  client = createSupabaseClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
     },
   });
   return client;

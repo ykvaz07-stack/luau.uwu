@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { isAdminEmail } from "@/lib/admin-check";
 
+
+export const runtime = "edge";
+
 async function getAuthUser() {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  const cookieHeader = cookieStore.getAll().map(({ name, value }) => `${name}=${value}`).join("; ");
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { cookie: cookieHeader } },
     }
   );
   const { data } = await supabase.auth.getUser();
@@ -36,7 +38,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!

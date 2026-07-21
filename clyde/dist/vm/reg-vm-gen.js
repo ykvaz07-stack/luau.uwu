@@ -3103,6 +3103,140 @@ function serializeBytecodeAsBinary(chunk, ctx) {
     serializeChunk(chunk);
     return new Uint8Array(parts);
 }
+function splitLargeClosures(chunk, maxInstr, names) {
+    let splitCount = 0;
+    function splitCode(code, K, protoIdx) {
+        const totalInstr = code.length / 4;
+        if (totalInstr <= maxInstr)
+            return 0;
+        const nSplits = Math.ceil(totalInstr / maxInstr);
+        const instrPerSplit = Math.ceil(totalInstr / nSplits);
+        const segments = [];
+        const jumpTargets = new Set();
+        for (let i = 0; i < code.length; i += 4) {
+            const op = code[i];
+            if (op === 21 /* RegOp.JMP */ || op === 30 /* RegOp.FORPREP */ || op === 31 /* RegOp.FORLOOP */) {
+                const B = code[i + 2];
+                const t = i + 4 + B * 4;
+                if (t >= 0 && t < code.length)
+                    jumpTargets.add(t);
+            }
+            if (op === 3 /* RegOp.LOADBOOL */ && code[i + 3] !== 0)
+                jumpTargets.add(i + 8);
+            if (op === 22 /* RegOp.EQ */ || op === 23 /* RegOp.LT */ || op === 24 /* RegOp.LE */ ||
+                op === 25 /* RegOp.TEST */ || op === 26 /* RegOp.TESTSET */ || op === 32 /* RegOp.TFORLOOP */) {
+                jumpTargets.add(i + 8);
+            }
+            const fusedOps = [
+                45 /* RegOp.FUSED_TEST_JMP */, 46 /* RegOp.FUSED_EQ_JMP */,
+                47 /* RegOp.FUSED_LT_JMP */, 48 /* RegOp.FUSED_LE_JMP */,
+                49 /* RegOp.FUSED_TESTSET_JMP */,
+            ];
+            if (fusedOps.includes(op)) {
+                if (i + 6 < code.length) {
+                    const _j = code[i + 6];
+                    const t = i + 8 + _j * 4;
+                    if (t >= 0 && t <= code.length)
+                        jumpTargets.add(t);
+                    jumpTargets.add(i + 8);
+                }
+            }
+        }
+        let segStart = 0;
+        while (segStart < code.length) {
+            let segEnd = Math.min(segStart + instrPerSplit * 4, code.length);
+            if (segStart > 0) {
+                while (jumpTargets.has(segStart) && segStart < segEnd)
+                    segStart += 4;
+            }
+            let adjusted = segEnd;
+            while (adjusted > segStart && !jumpTargets.has(adjusted) && adjusted < code.length) {
+                const prevOp = adjusted >= 4 ? code[adjusted - 4] : -1;
+                if (prevOp === 21 /* RegOp.JMP */ || prevOp === 29 /* RegOp.RETURN */ ||
+                    prevOp === 28 /* RegOp.TAILCALL */ || prevOp === 55 /* RegOp.FUSED_LOADK_RET */ ||
+                    prevOp === 56 /* RegOp.FUSED_MOVE_RET */) {
+                    adjusted -= 4;
+                }
+                else {
+                    break;
+                }
+            }
+            segEnd = adjusted;
+            if (segEnd <= segStart + 8 && segEnd < code.length) {
+                segEnd = Math.min(segStart + instrPerSplit * 4, code.length);
+            }
+            const seg = code.slice(segStart, segEnd);
+            segments.push({ code: seg, startIp: segStart });
+            segStart = segEnd;
+        }
+        if (segments.length <= 1)
+            return 0;
+        const totalSegments = segments.length;
+        console.log(`[RegVM] Code splitting: ${totalInstr} instr → ${totalSegments} sub-closures (max ${maxInstr}/closure)`);
+        const newCode = [];
+        const newProtos = [];
+        for (let s = 0; s < totalSegments; s++) {
+            const seg = segments[s];
+            const protoId = protoIdx + s;
+            const segCode = [...seg.code];
+            for (let i = 0; i < segCode.length; i += 4) {
+                const op = segCode[i];
+                if (op === 29 /* RegOp.RETURN */) {
+                    continue;
+                }
+                if (op === 21 /* RegOp.JMP */) {
+                    const B = segCode[i + 2];
+                    const rawTarget = seg.startIp + (i + 4 + B * 4);
+                    if (rawTarget < seg.startIp || rawTarget >= seg.startIp + seg.code.length) {
+                        segCode[i + 2] = 1;
+                    }
+                }
+                const fusedOps = [
+                    45 /* RegOp.FUSED_TEST_JMP */, 46 /* RegOp.FUSED_EQ_JMP */,
+                    47 /* RegOp.FUSED_LT_JMP */, 48 /* RegOp.FUSED_LE_JMP */,
+                    49 /* RegOp.FUSED_TESTSET_JMP */,
+                ];
+                if (fusedOps.includes(op) && i + 6 < segCode.length) {
+                    const _j = segCode[i + 6];
+                    const rawTarget = seg.startIp + (i + 8 + _j * 4);
+                    if (rawTarget < seg.startIp || rawTarget >= seg.startIp + seg.code.length) {
+                        segCode[i + 6] = 1;
+                    }
+                }
+            }
+            segCode.push(29 /* RegOp.RETURN */, 0, 1, 0);
+            const subChunk = {
+                code: segCode,
+                K: [...K],
+                protos: [],
+                nInstructions: segCode.length / 4,
+                maxRegs: 8,
+                nParams: 0,
+                isVararg: false,
+            };
+            newProtos.push(subChunk);
+            newCode.push(34 /* RegOp.CLOSURE */, 0, protoId, 0);
+            newCode.push(27 /* RegOp.CALL */, 0, 0, 0);
+        }
+        newCode.push(29 /* RegOp.RETURN */, 0, 1, 0);
+        code.length = 0;
+        code.push(...newCode);
+        return totalSegments;
+    }
+    function processChunk(ch, protoIdx) {
+        let count = 0;
+        const split = splitCode(ch.code, ch.K, protoIdx);
+        count += split;
+        if (ch.protos && ch.protos.length > 0) {
+            for (let p = 0; p < ch.protos.length; p++) {
+                count += processChunk(ch.protos[p], protoIdx + count + 1000);
+            }
+        }
+        return count;
+    }
+    splitCount = processChunk(chunk, 0);
+    return splitCount;
+}
 export function generateRegVM(chunk, options = {}) {
     const level = normalizeLevel(options.level);
     const seed = options.polymorphicSeed || generateDynamicSeed(chunk);
@@ -3184,6 +3318,11 @@ export function generateRegVM(chunk, options = {}) {
             console.log(`[RegVM] CFF: ${cffBlocks} blocks shuffled (main + protos)`);
         }
     }
+    // CODE_SPLITTING: When a chunk exceeds Luau's closure instruction limit,
+    // split its code array into sub-closures to prevent "bytecode limit exceeded" errors.
+    // Each sub-chunk becomes a nested proto the VM runtime chains through seamlessly.
+    const MAX_INSTR_PER_CLOSURE = 25000;
+    splitLargeClosures(chunk, MAX_INSTR_PER_CLOSURE, names);
     if (level !== "debug") {
         const used = collectUsedOpcodes(chunk);
         used.add(0 /* RegOp.NOP */);

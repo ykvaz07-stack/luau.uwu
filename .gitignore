@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cloudflare
+.open-next/
+.wrangler
+.dev.vars
+
 # stale directory (locked by process)
 /scriptshield/
 

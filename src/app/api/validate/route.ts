@@ -8,6 +8,9 @@ interface ValidateRequest {
   hwid?: string;
 }
 
+
+export const runtime = "edge";
+
 export async function POST(request: Request) {
   try {
     const body: ValidateRequest = await request.json();

@@ -59,6 +59,9 @@ import { createClient } from "@supabase/supabase-js";
 </body>
 </html>`;
 
+
+export const runtime = "edge";
+
 function isBrowserRequest(request: Request): boolean {
   const accept = request.headers.get("Accept") || "";
   const userAgent = request.headers.get("User-Agent") || "";

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, getAdminClient, checkKeyLimit } from "@/lib/supabase/admin";
 
+
+export const runtime = "edge";
+
 export async function GET() {
   try {
     const user = await getAuthUser();

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, getAdminClient, checkProjectLimit } from "@/lib/supabase/admin";
 
+
+export const runtime = "edge";
+
 export async function POST(request: Request) {
   try {
     const user = await getAuthUser();

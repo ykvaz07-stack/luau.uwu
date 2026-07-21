@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  experimental: {
+    optimizePackageImports: ["@supabase/supabase-js", "lucide-react"],
+  },
 };
 
 export default nextConfig;

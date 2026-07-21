@@ -29,7 +29,6 @@ export function protectWithMetatables(ast: Chunk, options: MetatableProtectorOpt
 
   const seed = options.seed ?? 0;
   const rng = createRng(seed);
-  const protectGlobal = options.protectGlobals ?? true;
   const loc = ast.body[0]?.loc ?? { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };
 
   const readOnlyTableName = `_mt_ro_${Math.floor(rng() * 100000)}`;
@@ -43,27 +42,126 @@ export function protectWithMetatables(ast: Chunk, options: MetatableProtectorOpt
       params: [{ type: "Param", name: "t", variadic: false, loc }],
       body: [
         {
-          type: "ReturnStatement",
-          values: [{
-            type: "TableConstructor",
-            fields: [
-              {
-                kind: "named",
-                name: "__newindex",
-                value: {
-                  type: "FunctionExpression",
-                  params: [{ type: "Param", name: "_", variadic: false, loc }],
-                  body: [
-                    { type: "ReturnStatement", values: [], loc },
-                  ],
+          type: "IfStatement",
+          condition: {
+            type: "BinaryExpression",
+            operator: "==",
+            left: {
+              type: "CallExpression",
+              callee: { type: "Identifier", name: "typeof", loc },
+              args: [idExp("t", loc)],
+              loc,
+            },
+            right: { type: "StringLiteral", value: "userdata", loc },
+            loc,
+          },
+          body: [
+            { type: "ReturnStatement", values: [idExp("t", loc)], loc },
+          ],
+          loc,
+        } as any,
+        {
+          type: "IfStatement",
+          condition: {
+            type: "BinaryExpression",
+            operator: "==",
+            left: {
+              type: "CallExpression",
+              callee: { type: "Identifier", name: "typeof", loc },
+              args: [idExp("t", loc)],
+              loc,
+            },
+            right: { type: "StringLiteral", value: "Instance", loc },
+            loc,
+          },
+          body: [
+            { type: "ReturnStatement", values: [idExp("t", loc)], loc },
+          ],
+          loc,
+        } as any,
+        {
+          type: "IfStatement",
+          condition: {
+            type: "BinaryExpression",
+            operator: "and",
+            left: {
+              type: "BinaryExpression",
+              operator: "==",
+              left: {
+                type: "CallExpression",
+                callee: { type: "Identifier", name: "type", loc },
+                args: [idExp("t", loc)],
+                loc,
+              },
+              right: { type: "StringLiteral", value: "userdata", loc },
+              loc,
+            },
+            right: {
+              type: "BinaryExpression",
+              operator: "and",
+              left: {
+                type: "BinaryExpression",
+                operator: "~=",
+                left: {
+                  type: "CallExpression",
+                  callee: { type: "Identifier", name: "typeof", loc },
+                  args: [idExp("t", loc)],
                   loc,
                 },
-              } as any,
+                right: { type: "StringLiteral", value: "userdata", loc },
+                loc,
+              },
+              right: {
+                type: "BinaryExpression",
+                operator: "~=",
+                left: {
+                  type: "CallExpression",
+                  callee: { type: "Identifier", name: "typeof", loc },
+                  args: [idExp("t", loc)],
+                  loc,
+                },
+                right: { type: "StringLiteral", value: "Instance", loc },
+                loc,
+              },
+              loc,
+            },
+            loc,
+          },
+          body: [
+            { type: "ReturnStatement", values: [idExp("t", loc)], loc },
+          ],
+          loc,
+        } as any,
+        {
+          type: "ReturnStatement",
+          values: [{
+            type: "CallExpression",
+            callee: { type: "Identifier", name: "setmetatable", loc },
+            args: [
+              idExp("t", loc),
               {
-                kind: "named",
-                name: "__index",
-                value: idExp("t", loc),
-              } as any,
+                type: "TableConstructor",
+                fields: [
+                  {
+                    kind: "named",
+                    name: "__newindex",
+                    value: {
+                      type: "FunctionExpression",
+                      params: [{ type: "Param", name: "_", variadic: false, loc }],
+                      body: [
+                        { type: "ReturnStatement", values: [], loc },
+                      ],
+                      loc,
+                    },
+                  } as any,
+                  {
+                    kind: "named",
+                    name: "__index",
+                    value: idExp("t", loc),
+                  } as any,
+                ],
+                loc,
+              },
             ],
             loc,
           }],
@@ -82,6 +180,42 @@ export function protectWithMetatables(ast: Chunk, options: MetatableProtectorOpt
       type: "FunctionExpression",
       params: [{ type: "Param", name: "target", variadic: false, loc }],
       body: [
+        {
+          type: "IfStatement",
+          condition: {
+            type: "BinaryExpression",
+            operator: "or",
+            left: {
+              type: "BinaryExpression",
+              operator: "==",
+              left: {
+                type: "CallExpression",
+                callee: { type: "Identifier", name: "typeof", loc },
+                args: [idExp("target", loc)],
+                loc,
+              },
+              right: { type: "StringLiteral", value: "userdata", loc },
+              loc,
+            },
+            right: {
+              type: "BinaryExpression",
+              operator: "==",
+              left: {
+                type: "CallExpression",
+                callee: { type: "Identifier", name: "typeof", loc },
+                args: [idExp("target", loc)],
+                loc,
+              },
+              right: { type: "StringLiteral", value: "Instance", loc },
+              loc,
+            },
+            loc,
+          },
+          body: [
+            { type: "ReturnStatement", values: [idExp("target", loc)], loc },
+          ],
+          loc,
+        } as any,
         {
           type: "ReturnStatement",
           values: [{
@@ -172,24 +306,7 @@ export function protectWithMetatables(ast: Chunk, options: MetatableProtectorOpt
     loc,
   };
 
-  const protectAssignCall = `setmetatable(rawget(_G, "print"), ${readOnlyTableName}(rawget(_G, "print")));`;
-
   const transformedBody: (Statement | LastStatement)[] = [...ast.body];
-
-  if (protectGlobal) {
-    const protectGlobalsCall: Statement = {
-      type: "DoStatement",
-      body: [
-        {
-          type: "AssignmentStatement",
-          vars: [{ type: "Identifier", name: readOnlyTableName, loc }] as any,
-          values: [idExp(readOnlyTableName, loc)],
-          loc,
-        },
-      ],
-      loc,
-    };
-  }
 
   return {
     ...ast,
