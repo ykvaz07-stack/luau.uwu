@@ -1,7 +1,25 @@
 import { RegOp, REG_OPCODE_COUNT, RK_OFFSET } from "./bytecode.js";
 import type { RegBytecodeChunk, Constant } from "./bytecode.js";
-import { randomBytes } from "crypto";
-import { writeFileSync as _dumpWrite } from "fs";
+let _randomBytes: ((size: number) => Uint8Array) | null = null;
+function getRandomBytes(size: number): Uint8Array {
+  if (_randomBytes === null) {
+    try {
+      const c = require("crypto");
+      _randomBytes = c.randomBytes;
+    } catch {
+      _randomBytes = (s) => { const b = new Uint8Array(s); crypto.getRandomValues(b); return b; };
+    }
+  }
+  return _randomBytes(size);
+}
+let _dumpWrite: Function | false | null = null;
+function getDumpWrite(): Function | false {
+  if (_dumpWrite === null) {
+    try { const f = require("fs"); _dumpWrite = f.writeFileSync; }
+    catch { _dumpWrite = false; }
+  }
+  return _dumpWrite;
+}
 import { encryptAndEncode, compressToBase85, compressBytesToBase85 } from "./lzma.js";
 import { generateBootstrap } from "./bootstrap-template.js";
 
@@ -3334,7 +3352,7 @@ function generateDynamicSeed(chunk: RegBytecodeChunk): number {
 
   try { mix(process.pid); } catch {}
 
-  try { const cb = randomBytes(16); for (let i = 0; i < 16; i += 4) mix(cb.readUInt32LE(i)); } catch {}
+  try { const cb = getRandomBytes(16); const dv = new DataView(cb.buffer, cb.byteOffset, cb.byteLength); for (let i = 0; i < 16; i += 4) mix(dv.getUint32(i, true)); } catch {}
 
   for (let i = 0; i < chunk.code.length; i += 37) mix(chunk.code[i]);
   mix(chunk.K.length);
@@ -3931,8 +3949,8 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
   }
 
   if (process.env.DUMP_RAW === '1' && level !== 'debug') {
-    _dumpWrite('debug-vm-raw.lua', output, 'utf-8');
-    console.log(`[RegVM] DUMP_RAW: saved ${output.length} chars to debug-vm-raw.lua`);
+    const dw = getDumpWrite();
+    if (dw) dw('debug-vm-raw.lua', output, 'utf-8');
   }
 
   if (level !== "debug" && process.env.NO_CIPHER !== '1' && featureEnabled(options, "customCipher", true)) {

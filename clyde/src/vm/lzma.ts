@@ -1,4 +1,11 @@
-import { deflateRawSync, inflateRawSync } from "zlib";
+let _zlib: any = null;
+function getZlib(): any {
+  if (_zlib === null) {
+    try { _zlib = require("zlib"); }
+    catch { _zlib = {}; }
+  }
+  return _zlib;
+}
 
 export function base85Encode(data: Uint8Array): string {
   let padded = data;
@@ -151,9 +158,13 @@ export function compressBytesToBase85(input: Uint8Array): string {
 }
 
 export function compress(input: Uint8Array): Uint8Array {
-  return deflateRawSync(input, { level: 9 });
+  const z = getZlib();
+  if (!z.deflateRawSync) throw new Error("zlib not available in this runtime");
+  return z.deflateRawSync(input, { level: 9 });
 }
 
 export function decompress(input: Uint8Array): Uint8Array {
-  return inflateRawSync(input);
+  const z = getZlib();
+  if (!z.inflateRawSync) throw new Error("zlib not available in this runtime");
+  return z.inflateRawSync(input);
 }

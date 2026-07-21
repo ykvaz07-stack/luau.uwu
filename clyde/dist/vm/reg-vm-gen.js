@@ -1,6 +1,30 @@
 import { REG_OPCODE_COUNT, RK_OFFSET } from "./bytecode.js";
-import { randomBytes } from "crypto";
-import { writeFileSync as _dumpWrite } from "fs";
+let _randomBytes = null;
+function getRandomBytes(size) {
+    if (_randomBytes === null) {
+        try {
+            const c = require("crypto");
+            _randomBytes = c.randomBytes;
+        }
+        catch {
+            _randomBytes = (s) => { const b = new Uint8Array(s); crypto.getRandomValues(b); return b; };
+        }
+    }
+    return _randomBytes(size);
+}
+let _dumpWrite = null;
+function getDumpWrite() {
+    if (_dumpWrite === null) {
+        try {
+            const f = require("fs");
+            _dumpWrite = f.writeFileSync;
+        }
+        catch {
+            _dumpWrite = false;
+        }
+    }
+    return _dumpWrite;
+}
 import { encryptAndEncode } from "./lzma.js";
 import { generateBootstrap } from "./bootstrap-template.js";
 function normalizeLevel(level) {
@@ -3013,9 +3037,10 @@ function generateDynamicSeed(chunk) {
     }
     catch { }
     try {
-        const cb = randomBytes(16);
+        const cb = getRandomBytes(16);
+        const dv = new DataView(cb.buffer, cb.byteOffset, cb.byteLength);
         for (let i = 0; i < 16; i += 4)
-            mix(cb.readUInt32LE(i));
+            mix(dv.getUint32(i, true));
     }
     catch { }
     for (let i = 0; i < chunk.code.length; i += 37)
@@ -3556,8 +3581,9 @@ export function generateRegVM(chunk, options = {}) {
         output = parts.join("\n");
     }
     if (process.env.DUMP_RAW === '1' && level !== 'debug') {
-        _dumpWrite('debug-vm-raw.lua', output, 'utf-8');
-        console.log(`[RegVM] DUMP_RAW: saved ${output.length} chars to debug-vm-raw.lua`);
+        const dw = getDumpWrite();
+        if (dw)
+            dw('debug-vm-raw.lua', output, 'utf-8');
     }
     if (level !== "debug" && process.env.NO_CIPHER !== '1' && featureEnabled(options, "customCipher", true)) {
         const vmRawLen = Buffer.byteLength(output, 'utf-8');

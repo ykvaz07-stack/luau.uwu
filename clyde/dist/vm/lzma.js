@@ -1,4 +1,15 @@
-import { deflateRawSync, inflateRawSync } from "zlib";
+let _zlib = null;
+function getZlib() {
+    if (_zlib === null) {
+        try {
+            _zlib = require("zlib");
+        }
+        catch {
+            _zlib = {};
+        }
+    }
+    return _zlib;
+}
 export function base85Encode(data) {
     let padded = data;
     if (data.length % 4 !== 0) {
@@ -122,9 +133,15 @@ export function compressBytesToBase85(input) {
     return base85Encode(input);
 }
 export function compress(input) {
-    return deflateRawSync(input, { level: 9 });
+    const z = getZlib();
+    if (!z.deflateRawSync)
+        throw new Error("zlib not available in this runtime");
+    return z.deflateRawSync(input, { level: 9 });
 }
 export function decompress(input) {
-    return inflateRawSync(input);
+    const z = getZlib();
+    if (!z.inflateRawSync)
+        throw new Error("zlib not available in this runtime");
+    return z.inflateRawSync(input);
 }
 //# sourceMappingURL=lzma.js.map
