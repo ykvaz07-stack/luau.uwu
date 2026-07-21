@@ -23,7 +23,7 @@
     "codemirror-mode-luau": "^1.0.9",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "^4.13.0",
@@ -38,7 +38,7 @@
     "@types/react-dom": "^19",
     "concurrently": "^9.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wrangler": "^4.112.0"
