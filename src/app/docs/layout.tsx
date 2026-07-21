@@ -26,7 +26,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           {/* Mobile sidebar toggle */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/25"
+            className="lg:hidden fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-lime-400 text-white shadow-lg shadow-emerald-500/25"
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -42,7 +42,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           }`}>
             <div className="p-4 space-y-1 bg-[#060512]/95 lg:bg-transparent h-full border-r border-white/[0.06] lg:border-0">
               <div className="flex items-center gap-2 px-3 py-3 mb-4">
-                <BookOpen className="h-5 w-5 text-indigo-400" />
+                <BookOpen className="h-5 w-5 text-emerald-400" />
                 <span className="font-semibold text-sm">Documentation</span>
               </div>
               {sidebarLinks.map((link) => {
@@ -54,8 +54,8 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-all ${
                       isActive
-                        ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                        : "text-white/50 hover:text-white/80 hover:bg-white/[0.04]"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "text-white/50 hover:text-emerald-300 hover:bg-emerald-500/5"
                     }`}
                   >
                     <span className="text-xs opacity-50">{link.icon}</span>

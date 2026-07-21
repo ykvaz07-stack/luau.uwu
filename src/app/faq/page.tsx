@@ -12,9 +12,9 @@ const categories = [
   {
     title: "General",
     questions: [
-      { q: "What is luau.uwu?", a: "luau.uwu is a professional key management, VM obfuscation, and script protection platform built specifically for Roblox developers. We help you secure your Luau scripts and control access with license keys." },
-      { q: "Is luau.uwu free to use?", a: "Yes! We offer a generous free plan with 1 project, 2 scripts, and 25 keys. When you need more, upgrade to Pro or Premium starting at just $10/month." },
-      { q: "Who is luau.uwu for?", a: "luau.uwu is designed for Roblox script developers who want to protect their work, manage access with license keys, and monetize their scripts securely." },
+      { q: "What is LuaCrypt?", a: "LuaCrypt is a professional key management, VM obfuscation, and script protection platform built specifically for Roblox developers. We help you secure your Luau scripts and control access with license keys." },
+      { q: "Is LuaCrypt free to use?", a: "Yes! We offer a generous free plan with 1 project, 2 scripts, and 25 keys. When you need more, upgrade to Pro or Premium starting at just $10/month." },
+      { q: "Who is LuaCrypt for?", a: "LuaCrypt is designed for Roblox script developers who want to protect their work, manage access with license keys, and monetize their scripts securely." },
       { q: "Do I need coding experience?", a: "Basic knowledge of Lua/Luau is helpful, but our system is designed to be easy to use. Upload your script, generate keys, and you're ready to go." },
     ],
   },
@@ -71,8 +71,8 @@ export default function FAQPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute top-0 left-1/3 w-[400px] h-[400px] rounded-full bg-indigo-500/6 blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/3 w-[300px] h-[300px] rounded-full bg-cyan-500/5 blur-[100px]" />
+        <div className="absolute top-0 left-1/3 w-[400px] h-[400px] rounded-full bg-emerald-500/6 blur-[120px]" />
+        <div className="absolute bottom-1/4 right-1/3 w-[300px] h-[300px] rounded-full bg-lime-500/5 blur-[100px]" />
       </div>
 
       <PublicNavbar />
@@ -80,13 +80,13 @@ export default function FAQPage() {
       <section className="relative pt-32 pb-20">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <HelpCircle className="h-3.5 w-3.5 text-indigo-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+              <HelpCircle className="h-3.5 w-3.5 text-emerald-400" />
               FAQ
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold mb-4">
               Frequently asked{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 questions
               </span>
             </h1>
@@ -102,7 +102,7 @@ export default function FAQPage() {
                 placeholder="Search questions..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] pl-10 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/30 focus:bg-white/[0.06] transition-all"
+                className="w-full h-11 rounded-xl bg-emerald-500/5 border border-emerald-500/10 pl-10 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/30 focus:bg-emerald-500/8 transition-all"
               />
             </div>
           </MotionDiv>
@@ -118,7 +118,7 @@ export default function FAQPage() {
                   const isOpen = openItems[key];
                   return (
                     <MotionStaggerItem key={key}>
-                      <div className="border-b border-white/[0.06] last:border-0">
+                      <div className="border-b border-emerald-500/8 last:border-0">
                         <button
                           onClick={() => toggle(key)}
                           className="w-full flex items-center justify-between py-4 text-left group"
@@ -163,10 +163,10 @@ export default function FAQPage() {
           )}
 
           {/* Still have questions */}
-          <MotionDiv className="relative rounded-2xl bg-gradient-to-br from-indigo-500/[0.06] to-cyan-500/[0.06] border border-indigo-500/15 p-8 md:p-10 text-center mt-12 overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[60px]" />
+          <MotionDiv className="relative rounded-2xl bg-gradient-to-br from-emerald-500/[0.06] to-lime-500/[0.06] border border-emerald-500/15 p-8 md:p-10 text-center mt-12 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-[60px]" />
             <div className="relative z-10">
-              <MessageCircle className="h-8 w-8 text-indigo-400 mx-auto mb-4" />
+              <MessageCircle className="h-8 w-8 text-emerald-400 mx-auto mb-4" />
               <h2 className="text-xl font-bold mb-2">Still have questions?</h2>
               <p className="text-white/40 text-sm mb-6 max-w-md mx-auto">
                 Our team is ready to help. Join our Discord community or check the documentation.
@@ -176,7 +176,7 @@ export default function FAQPage() {
                   href="https://discord.gg/luauuwu"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-lime-400 px-5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-emerald-500/25"
                 >
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Join Discord

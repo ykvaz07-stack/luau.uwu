@@ -32,40 +32,40 @@ import { PublicFooter } from "@/components/layout/public-footer";
 
 const features = [
   {
-    icon: Key,
-    title: "Key System",
-    description: "Generate, manage, and validate license keys with HWID locking, expiry dates, and Discord integration.",
-    gradient: "from-violet-500 to-purple-500",
-  },
-  {
     icon: Shield,
     title: "VM Obfuscation",
     description: "Register-based VM protection with string encryption, MBA expressions, and control flow flattening.",
-    gradient: "from-indigo-500 to-blue-500",
+    gradient: "from-emerald-500 to-teal-500",
+  },
+  {
+    icon: Key,
+    title: "Key System",
+    description: "Generate, manage, and validate license keys with HWID locking, expiry dates, and Discord integration.",
+    gradient: "from-emerald-500 to-lime-500",
   },
   {
     icon: Code,
     title: "Script Hosting",
     description: "Upload and version your scripts with loadstring-ready URLs. Obfuscate on demand from the dashboard.",
-    gradient: "from-cyan-500 to-teal-500",
+    gradient: "from-emerald-500 to-cyan-500",
   },
   {
     icon: Zap,
     title: "Lightning Fast",
     description: "Sub-50ms key validation with 99.9% uptime. Your users get instant access without delays.",
-    gradient: "from-amber-500 to-orange-500",
+    gradient: "from-lime-500 to-green-500",
   },
   {
     icon: Lock,
     title: "HWID Locking",
     description: "Bind keys to hardware IDs to prevent sharing. One key, one machine. Revoke and reset anytime.",
-    gradient: "from-rose-500 to-pink-500",
+    gradient: "from-emerald-500 to-green-500",
   },
   {
     icon: BarChart3,
     title: "Analytics",
     description: "Track executions, active users, key usage, and script load counts with real-time dashboards.",
-    gradient: "from-emerald-500 to-green-500",
+    gradient: "from-teal-500 to-emerald-500",
   },
 ];
 
@@ -81,7 +81,7 @@ const pricingPlans = [
     name: "Free",
     price: { monthly: "$0", yearly: "$0" },
     period: { monthly: "/month", yearly: "/year" },
-    description: "Perfect for trying out luau.uwu",
+    description: "Perfect for trying out LuaCrypt",
     features: [
       { text: "1 project", included: true },
       { text: "2 scripts", included: true },
@@ -135,8 +135,8 @@ const pricingPlans = [
 
 const faqs = [
   {
-    q: "What is luau.uwu?",
-    a: "luau.uwu is a professional key management, VM obfuscation, and script protection platform built specifically for Roblox developers. We help you secure your Luau scripts and control access with license keys.",
+    q: "What is LuaCrypt?",
+    a: "LuaCrypt is a professional key management, VM obfuscation, and script protection platform built specifically for Roblox developers. We help you secure your Luau scripts and control access with license keys.",
   },
   {
     q: "How does the obfuscation work?",
@@ -170,21 +170,26 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* Hero gradient orbs */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
         <motion.div
-          className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-indigo-500/10 blur-[150px]"
+          className="absolute top-0 left-1/4 w-[700px] h-[700px] rounded-full bg-emerald-500/12 blur-[160px]"
           animate={{ y: [0, -30, 0], x: [0, 15, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute top-1/3 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-500/8 blur-[130px]"
+          className="absolute top-1/3 right-1/4 w-[500px] h-[500px] rounded-full bg-lime-500/8 blur-[130px]"
           animate={{ y: [0, 25, 0], x: [0, -15, 0] }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] rounded-full bg-purple-500/6 blur-[120px]"
+          className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] rounded-full bg-teal-500/6 blur-[120px]"
           animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.8, 0.4] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-0 right-1/3 w-[300px] h-[300px] rounded-full bg-emerald-500/5 blur-[100px]"
+          animate={{ y: [0, 20, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
 
@@ -197,11 +202,11 @@ export default function Home() {
           <MotionDiv delay={0.1}>
             <Link
               href="/docs/getting-started"
-              className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/60 hover:text-white/80 transition-colors group mb-8"
+              className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 hover:text-emerald-200 transition-colors group mb-8"
             >
-              <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
               New: Discord bot integration available
-              <ArrowUpRight className="h-3 w-3 text-white/30 group-hover:text-white/60 transition-colors" />
+              <ArrowUpRight className="h-3 w-3 text-emerald-500/30 group-hover:text-emerald-400/60 transition-colors" />
             </Link>
           </MotionDiv>
 
@@ -209,12 +214,12 @@ export default function Home() {
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-6 leading-[1.1]">
               <span className="text-white/90">Protect your</span>
               <br />
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-lime-400 bg-clip-text text-transparent">
                 scripts.
               </span>
               <br />
               <span className="text-white/90">Control</span>{" "}
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-lime-400 bg-clip-text text-transparent">
                 access.
               </span>
             </h1>
@@ -222,9 +227,9 @@ export default function Home() {
 
           <MotionDiv delay={0.3}>
             <p className="mx-auto max-w-2xl text-base sm:text-lg text-white/40 leading-relaxed mb-10">
-              Professional key management, VM obfuscation, and script protection
-              platform for Roblox developers. Secure your work and monetize your
-              scripts with ease.
+              Enterprise-grade VM obfuscation, license key management, and script
+              protection platform for Roblox developers. Secure your work, own your
+              code.
             </p>
           </MotionDiv>
 
@@ -232,19 +237,19 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/signup"
-                className="group relative inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-8 text-sm font-semibold text-white overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                className="group relative inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-lime-400 px-8 text-sm font-semibold text-white overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <span className="relative z-10 flex items-center gap-2">
                   Start for free
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </span>
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-lime-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                 />
               </Link>
               <Link
                 href="#features"
-                className="inline-flex h-12 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] px-8 text-sm font-medium text-white/70 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.2] transition-all"
+                className="inline-flex h-12 items-center justify-center rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-8 text-sm font-medium text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/10 hover:border-emerald-500/25 transition-all"
               >
                 Learn more
               </Link>
@@ -254,8 +259,8 @@ export default function Home() {
           {/* Hero code block */}
           <MotionDiv delay={0.6} className="mt-16 max-w-2xl mx-auto">
             <div className="relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-xl opacity-20 group-hover:opacity-30 blur-lg transition-opacity duration-500" />
-              <div className="relative rounded-xl bg-[#0a0819]/90 backdrop-blur-sm border border-white/[0.08] p-4 text-left overflow-hidden">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-lime-400 rounded-xl opacity-20 group-hover:opacity-30 blur-lg transition-opacity duration-500" />
+              <div className="relative rounded-xl bg-[#050a05]/90 backdrop-blur-sm border border-emerald-500/10 p-4 text-left overflow-hidden">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-3 w-3 rounded-full bg-red-500/80" />
                   <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
@@ -265,41 +270,41 @@ export default function Home() {
                 <pre className="text-sm font-mono leading-relaxed overflow-x-auto">
                   <code>
                     <span className="text-white/20">local </span>
-                    <span className="text-indigo-300">luau </span>
+                    <span className="text-emerald-300">luau </span>
                     <span className="text-white/30">= </span>
-                    <span className="text-cyan-300">require</span>
+                    <span className="text-lime-300">require</span>
                     <span className="text-white/30">(</span>
-                    <span className="text-amber-300">&quot;luau.uwu&quot;</span>
+                    <span className="text-amber-300">&quot;LuaCrypt&quot;</span>
                     <span className="text-white/30">)</span>
                     {"\n"}
                     <span className="text-white/20">local </span>
-                    <span className="text-indigo-300">key </span>
+                    <span className="text-emerald-300">key </span>
                     <span className="text-white/30">= </span>
-                    <span className="text-indigo-300">luau</span>
+                    <span className="text-emerald-300">luau</span>
                     <span className="text-white/30">:</span>
-                    <span className="text-cyan-300">validate</span>
+                    <span className="text-lime-300">validate</span>
                     <span className="text-white/30">(</span>
                     <span className="text-amber-300">&quot;USER_KEY_HERE&quot;</span>
                     <span className="text-white/30">)</span>
                     {"\n\n"}
                     <span className="text-white/20">if </span>
-                    <span className="text-indigo-300">key</span>
+                    <span className="text-emerald-300">key</span>
                     <span className="text-white/30">.</span>
-                    <span className="text-indigo-300">valid </span>
+                    <span className="text-emerald-300">valid </span>
                     <span className="text-white/20">then</span>
                     {"\n"}
                     <span className="text-white/30">  </span>
-                    <span className="text-cyan-300">print</span>
+                    <span className="text-lime-300">print</span>
                     <span className="text-white/30">(</span>
                     <span className="text-amber-300">&quot;Access granted!&quot;</span>
                     <span className="text-white/30">)</span>
                     {"\n"}
                     <span className="text-white/30">  </span>
-                    <span className="text-cyan-300">loadstring</span>
+                    <span className="text-lime-300">loadstring</span>
                     <span className="text-white/30">(</span>
-                    <span className="text-indigo-300">game</span>
+                    <span className="text-emerald-300">game</span>
                     <span className="text-white/30">:</span>
-                    <span className="text-cyan-300">HttpGet</span>
+                    <span className="text-lime-300">HttpGet</span>
                     <span className="text-white/30">(</span>
                     <span className="text-amber-300">&quot;SCRIPT_URL&quot;</span>
                     <span className="text-white/30">))()</span>
@@ -307,7 +312,7 @@ export default function Home() {
                     <span className="text-white/20">else</span>
                     {"\n"}
                     <span className="text-white/30">  </span>
-                    <span className="text-indigo-300">warn</span>
+                    <span className="text-emerald-300">warn</span>
                     <span className="text-white/30">(</span>
                     <span className="text-amber-300">&quot;Invalid key&quot;</span>
                     <span className="text-white/30">)</span>
@@ -322,14 +327,14 @@ export default function Home() {
       </motion.section>
 
       {/* ===== STATS ===== */}
-      <section className="py-16 border-t border-white/[0.04]">
+      <section className="py-16 border-t border-emerald-500/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionStagger className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {stats.map((stat) => (
               <MotionStaggerItem key={stat.label}>
                 <div className="text-center group">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.06] mb-4 group-hover:border-indigo-500/20 group-hover:bg-indigo-500/5 transition-all duration-300">
-                    <stat.icon className="h-6 w-6 text-white/40 group-hover:text-indigo-400 transition-colors duration-300" />
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/5 border border-emerald-500/10 mb-4 group-hover:border-emerald-500/25 group-hover:bg-emerald-500/10 transition-all duration-300">
+                    <stat.icon className="h-6 w-6 text-emerald-400/50 group-hover:text-emerald-400 transition-colors duration-300" />
                   </div>
                   <div className="text-3xl md:text-4xl font-bold text-white mb-1">
                     {stat.value}
@@ -346,13 +351,13 @@ export default function Home() {
       <section id="features" className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <Layers className="h-3.5 w-3.5 text-indigo-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+              <Layers className="h-3.5 w-3.5 text-emerald-400" />
               Everything you need
             </div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
               A complete{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 toolkit
               </span>
             </h2>
@@ -364,13 +369,13 @@ export default function Home() {
           <MotionStagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((feature) => (
               <MotionStaggerItem key={feature.title}>
-                <div className="group relative rounded-xl bg-white/[0.03] border border-white/[0.06] p-6 hover:bg-white/[0.06] hover:border-white/[0.1] transition-all duration-300 hover:shadow-xl hover:shadow-black/20">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br ${feature.gradient} bg-opacity-10 mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                <div className="group relative rounded-xl bg-emerald-500/3 border border-emerald-500/8 p-6 hover:bg-emerald-500/8 hover:border-emerald-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-black/30">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br ${feature.gradient} mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
                     <feature.icon className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="text-lg font-semibold text-white/90 mb-2">{feature.title}</h3>
                   <p className="text-sm text-white/40 leading-relaxed">{feature.description}</p>
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               </MotionStaggerItem>
             ))}
@@ -379,16 +384,16 @@ export default function Home() {
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
-      <section className="py-20 md:py-28 border-t border-white/[0.04]">
+      <section className="py-20 md:py-28 border-t border-emerald-500/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <Play className="h-3.5 w-3.5 text-indigo-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+              <Play className="h-3.5 w-3.5 text-emerald-400" />
               Simple workflow
             </div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
               Get started in{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 minutes
               </span>
             </h2>
@@ -399,7 +404,7 @@ export default function Home() {
 
           <MotionStagger className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
             {/* Connecting line (desktop) */}
-            <div className="hidden md:block absolute top-1/3 left-[16%] right-[16%] h-px bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-cyan-500/20" />
+            <div className="hidden md:block absolute top-1/3 left-[16%] right-[16%] h-px bg-gradient-to-r from-emerald-500/30 via-emerald-400/20 to-lime-400/30" />
 
             {[
               { step: "01", title: "Upload your script", desc: "Add your Luau script to a project and configure obfuscation settings.", icon: FileCode },
@@ -409,10 +414,10 @@ export default function Home() {
               <MotionStaggerItem key={item.step}>
                 <div className="text-center relative">
                   <div className="relative inline-flex mb-6">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 border border-indigo-500/20">
-                      <item.icon className="h-7 w-7 text-indigo-400" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-lime-500/20 border border-emerald-500/25">
+                      <item.icon className="h-7 w-7 text-emerald-400" />
                     </div>
-                    <div className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-cyan-500 text-xs font-bold text-white shadow-lg">
+                    <div className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-lime-400 text-xs font-bold text-white shadow-lg shadow-emerald-500/30">
                       {i + 1}
                     </div>
                   </div>
@@ -426,16 +431,16 @@ export default function Home() {
       </section>
 
       {/* ===== TERMINAL DEMO ===== */}
-      <section className="py-20 md:py-28 border-t border-white/[0.04]">
+      <section className="py-20 md:py-28 border-t border-emerald-500/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <Monitor className="h-3.5 w-3.5 text-indigo-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+              <Monitor className="h-3.5 w-3.5 text-emerald-400" />
               Interactive demo
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               See it in{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 action
               </span>
             </h2>
@@ -451,16 +456,16 @@ export default function Home() {
       </section>
 
       {/* ===== PRICING ===== */}
-      <section id="pricing" className="py-20 md:py-28 border-t border-white/[0.04]">
+      <section id="pricing" className="py-20 md:py-28 border-t border-emerald-500/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <Star className="h-3.5 w-3.5 text-indigo-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+              <Star className="h-3.5 w-3.5 text-emerald-400" />
               Simple pricing
             </div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
               Plans for every{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 developer
               </span>
             </h2>
@@ -469,11 +474,11 @@ export default function Home() {
             </p>
 
             {/* Toggle */}
-            <div className="inline-flex items-center gap-3 bg-white/[0.04] border border-white/[0.08] rounded-xl p-1.5">
+            <div className="inline-flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-1.5">
               <button
                 onClick={() => setYearly(false)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  !yearly ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/60"
+                  !yearly ? "bg-emerald-500/15 text-emerald-200" : "text-white/40 hover:text-white/60"
                 }`}
               >
                 Monthly
@@ -481,7 +486,7 @@ export default function Home() {
               <button
                 onClick={() => setYearly(true)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  yearly ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/60"
+                  yearly ? "bg-emerald-500/15 text-emerald-200" : "text-white/40 hover:text-white/60"
                 }`}
               >
                 Yearly
@@ -494,18 +499,18 @@ export default function Home() {
             {pricingPlans.map((plan) => (
               <MotionStaggerItem key={plan.name}>
                 <div
-                  className={`relative rounded-xl p-6 md:p-8 h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-black/20 ${
+                  className={`relative rounded-xl p-6 md:p-8 h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-black/30 ${
                     plan.popular
-                      ? "bg-gradient-to-b from-indigo-500/[0.08] to-transparent border border-indigo-500/25"
-                      : "bg-white/[0.03] border border-white/[0.06]"
+                      ? "bg-gradient-to-b from-emerald-500/[0.08] to-transparent border border-emerald-500/25"
+                      : "bg-emerald-500/3 border border-emerald-500/8"
                   }`}
                 >
                   {plan.popular && (
                     <>
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-1 text-xs font-medium text-white shadow-lg shadow-indigo-500/25">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500 to-lime-400 px-4 py-1 text-xs font-medium text-white shadow-lg shadow-emerald-500/30">
                         Most Popular
                       </div>
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-indigo-500/[0.03] to-transparent pointer-events-none" />
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-emerald-500/[0.03] to-transparent pointer-events-none" />
                     </>
                   )}
                   <h3 className="text-lg font-semibold text-white/90">{plan.name}</h3>
@@ -545,8 +550,8 @@ export default function Home() {
                     href="/signup"
                     className={`mt-8 inline-flex h-11 w-full items-center justify-center rounded-xl text-sm font-medium transition-all ${
                       plan.popular
-                        ? "bg-gradient-to-r from-indigo-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98]"
-                        : "border border-white/[0.12] text-white/70 hover:text-white hover:bg-white/[0.06] hover:border-white/[0.2]"
+                        ? "bg-gradient-to-r from-emerald-500 to-lime-400 text-white hover:shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                        : "border border-emerald-500/15 text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/8 hover:border-emerald-500/25"
                     }`}
                   >
                     {plan.cta}
@@ -559,22 +564,22 @@ export default function Home() {
       </section>
 
       {/* ===== CTA SECTION ===== */}
-      <section className="py-20 md:py-28 border-t border-white/[0.04]">
+      <section className="py-20 md:py-28 border-t border-emerald-500/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <MotionDiv className="relative rounded-2xl bg-gradient-to-br from-indigo-500/[0.08] via-purple-500/[0.04] to-cyan-500/[0.08] border border-indigo-500/20 p-8 md:p-16 text-center overflow-hidden">
+          <MotionDiv className="relative rounded-2xl bg-gradient-to-br from-emerald-500/[0.08] via-teal-500/[0.04] to-lime-500/[0.08] border border-emerald-500/20 p-8 md:p-16 text-center overflow-hidden">
             {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-lime-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
 
             <div className="relative z-10">
               <motion.div
-                className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6"
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6"
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
               >
-                <Zap className="h-3.5 w-3.5 text-indigo-400" />
+                <Zap className="h-3.5 w-3.5 text-emerald-400" />
                 Ready to get started?
               </motion.div>
               <motion.h2
@@ -585,7 +590,7 @@ export default function Home() {
                 transition={{ delay: 0.2 }}
               >
                 Start protecting your{" "}
-                <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                   scripts today
                 </span>
               </motion.h2>
@@ -596,7 +601,7 @@ export default function Home() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.3 }}
               >
-                Join thousands of Roblox developers who trust luau.uwu to protect their scripts. 
+                Join thousands of Roblox developers who trust LuaCrypt to protect their scripts. 
                 Start free, no credit card required.
               </motion.p>
               <motion.div
@@ -608,7 +613,7 @@ export default function Home() {
               >
                 <Link
                   href="/signup"
-                  className="group inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-8 text-sm font-semibold text-white transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                  className="group inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-lime-400 px-8 text-sm font-semibold text-white transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <span className="flex items-center gap-2">
                     Get started free
@@ -617,7 +622,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href="/docs"
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] px-8 text-sm font-medium text-white/70 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.2] transition-all"
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-8 text-sm font-medium text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/10 hover:border-emerald-500/25 transition-all"
                 >
                   Read the docs
                 </Link>
@@ -628,28 +633,28 @@ export default function Home() {
       </section>
 
       {/* ===== FAQ ===== */}
-      <section id="faq" className="py-20 md:py-28 border-t border-white/[0.04]">
+      <section id="faq" className="py-20 md:py-28 border-t border-emerald-500/8">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <HelpCircle className="h-3.5 w-3.5 text-indigo-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+              <HelpCircle className="h-3.5 w-3.5 text-emerald-400" />
               FAQ
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Frequently asked{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 questions
               </span>
             </h2>
             <p className="text-white/40">
-              Everything you need to know about luau.uwu.
+              Everything you need to know about LuaCrypt.
             </p>
           </MotionDiv>
 
           <MotionStagger>
             {faqs.map((faq, i) => (
               <MotionStaggerItem key={i}>
-                <div className="border-b border-white/[0.06] last:border-0">
+                <div className="border-b border-emerald-500/8 last:border-0">
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
                     className="w-full flex items-center justify-between py-5 text-left group"

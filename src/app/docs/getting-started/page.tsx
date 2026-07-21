@@ -15,7 +15,7 @@ function CodeBlock({ code }: { code: string }) {
       >
         {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
-      <pre className="rounded-xl bg-[#0a0819] border border-white/[0.08] p-4 overflow-x-auto">
+      <pre className="rounded-xl bg-[#050a05] border border-emerald-500/10 p-4 overflow-x-auto">
         <code className="text-sm font-mono text-white/70 leading-relaxed">{code}</code>
       </pre>
     </div>
@@ -95,7 +95,7 @@ export default function GettingStartedPage() {
 
 local function validateKey(key, hwid)
     local response = HttpService:RequestAsync({
-        Url = "https://luau.uwu/api/validate",
+        Url = "https://luacrypt.dev/api/validate",
         Method = "POST",
         Headers = { ["Content-Type"] = "application/json" },
         Body = HttpService:JSONEncode({
@@ -128,7 +128,7 @@ end`} />
         </p>
         <p className="text-xs text-white/30 mb-2">Loading a protected script:</p>
         <CodeBlock code={`-- After successful validation
-local scriptUrl = "https://luau.uwu/api/scripts/abc123/load"
+local scriptUrl = "https://luacrypt.dev/api/scripts/abc123/load"
 local success, result = pcall(function()
     return game:HttpGet(scriptUrl)
 end)

@@ -28,7 +28,7 @@ const featureCategories = [
     title: "Key Management",
     description: "Full-featured license key system with HWID locking, expiry management, and Discord integration.",
     icon: Key,
-    gradient: "from-violet-500 to-purple-500",
+    gradient: "from-emerald-500 to-teal-500",
     features: [
       { title: "Key Generation", desc: "Generate single or bulk keys with customizable prefixes and patterns." },
       { title: "HWID Locking", desc: "Bind keys to hardware IDs to prevent sharing across machines." },
@@ -42,7 +42,7 @@ const featureCategories = [
     title: "VM Obfuscation",
     description: "Enterprise-grade VM obfuscation that turns your bytecode into a custom register-based virtual machine.",
     icon: Shield,
-    gradient: "from-indigo-500 to-blue-500",
+    gradient: "from-emerald-500 to-lime-500",
     features: [
       { title: "Register VM", desc: "Custom register-based virtual machine that interprets obfuscated bytecode." },
       { title: "String Encryption", desc: "Multi-layer string encoding with S-Box, helix, and cascade algorithms." },
@@ -56,7 +56,7 @@ const featureCategories = [
     title: "Script Hosting",
     description: "Secure script hosting with versioning, obfuscation on demand, and loadstring-ready URLs.",
     icon: Cloud,
-    gradient: "from-cyan-500 to-teal-500",
+    gradient: "from-emerald-500 to-cyan-500",
     features: [
       { title: "Version Control", desc: "Upload new versions while keeping old ones accessible." },
       { title: "On-Demand Obfuscation", desc: "Obfuscate scripts instantly from the dashboard or API." },
@@ -70,7 +70,7 @@ const featureCategories = [
     title: "API & Integrations",
     description: "REST API for key validation, script delivery, and Discord bot integration.",
     icon: Globe,
-    gradient: "from-amber-500 to-orange-500",
+    gradient: "from-lime-500 to-green-500",
     features: [
       { title: "Validation API", desc: "REST endpoint for server-side key validation with sub-50ms response." },
       { title: "Discord Bot", desc: "Full Discord bot for whitelisting, HWID reset, and key management." },
@@ -97,8 +97,8 @@ export default function FeaturesPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute top-0 left-1/3 w-[500px] h-[500px] rounded-full bg-indigo-500/8 blur-[140px]" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-cyan-500/6 blur-[120px]" />
+        <div className="absolute top-0 left-1/3 w-[500px] h-[500px] rounded-full bg-emerald-500/8 blur-[140px]" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-lime-500/6 blur-[120px]" />
       </div>
 
       <PublicNavbar />
@@ -113,7 +113,7 @@ export default function FeaturesPage() {
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
               Everything you need to{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 protect
               </span>{" "}
               your scripts
@@ -138,7 +138,7 @@ export default function FeaturesPage() {
                 <p className="text-white/40 mb-8 text-base leading-relaxed">{category.description}</p>
                 <Link
                   href="/pricing"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors group"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors group"
                 >
                   View pricing
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
@@ -182,7 +182,7 @@ export default function FeaturesPage() {
                   <tr className="border-b border-white/[0.06]">
                     <th className="text-left py-4 px-6 text-sm font-medium text-white/40">Feature</th>
                     <th className="text-center py-4 px-4 text-sm font-medium text-white/50">Free</th>
-                    <th className="text-center py-4 px-4 text-sm font-medium text-indigo-400 bg-indigo-500/[0.04]">Pro</th>
+                    <th className="text-center py-4 px-4 text-sm font-medium text-emerald-400 bg-emerald-500/[0.04]">Pro</th>
                     <th className="text-center py-4 px-4 text-sm font-medium text-white/50">Premium</th>
                   </tr>
                 </thead>
@@ -193,7 +193,7 @@ export default function FeaturesPage() {
                       {(["free", "pro", "premium"] as const).map((tier) => {
                         const val = item[tier];
                         return (
-                          <td key={tier} className={`text-center py-3.5 px-4 text-sm ${tier === "pro" ? "bg-indigo-500/[0.04]" : ""}`}>
+                            <td key={tier} className={`text-center py-3.5 px-4 text-sm ${tier === "pro" ? "bg-emerald-500/[0.04]" : ""}`}>
                             {typeof val === "boolean" ? (
                               val ? (
                                 <Check className="h-4 w-4 text-emerald-400 mx-auto" />
@@ -216,7 +216,7 @@ export default function FeaturesPage() {
           <MotionDiv className="text-center mt-8">
             <Link
               href="/pricing"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-6 text-sm font-semibold text-white hover:shadow-lg hover:shadow-indigo-500/25 transition-all"
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-lime-400 px-6 text-sm font-semibold text-white hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
             >
               Compare plans in detail
             </Link>

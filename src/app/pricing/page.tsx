@@ -13,7 +13,7 @@ const plans = [
     name: "Free",
     price: { monthly: "$0", yearly: "$0" },
     period: { monthly: "/month", yearly: "/year" },
-    desc: "Perfect for trying out luau.uwu",
+    desc: "Perfect for trying out LuaCrypt",
     features: [
       { text: "1 project", included: true },
       { text: "2 scripts", included: true },
@@ -83,8 +83,8 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-indigo-500/8 blur-[140px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-cyan-500/6 blur-[120px]" />
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-emerald-500/8 blur-[140px]" />
+        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-lime-500/6 blur-[120px]" />
       </div>
 
       <PublicNavbar />
@@ -93,12 +93,12 @@ export default function PricingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionDiv className="text-center mb-16">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
               Pricing
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4">
               Simple, transparent{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">
                 pricing
               </span>
             </h1>
@@ -106,11 +106,11 @@ export default function PricingPage() {
               Start free, upgrade when you need more. 7-day free trial on Pro — no credit card required.
             </p>
 
-            <div className="inline-flex items-center gap-3 bg-white/[0.04] border border-white/[0.08] rounded-xl p-1.5">
+            <div className="inline-flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-1.5">
               <button
                 onClick={() => setYearly(false)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  !yearly ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/60"
+                  !yearly ? "bg-emerald-500/15 text-emerald-200" : "text-white/40 hover:text-white/60"
                 }`}
               >
                 Monthly
@@ -118,7 +118,7 @@ export default function PricingPage() {
               <button
                 onClick={() => setYearly(true)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  yearly ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/60"
+                  yearly ? "bg-emerald-500/15 text-emerald-200" : "text-white/40 hover:text-white/60"
                 }`}
               >
                 Yearly
@@ -133,16 +133,16 @@ export default function PricingPage() {
                 <div
                   className={`relative rounded-xl p-6 md:p-8 h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-black/20 ${
                     plan.popular
-                      ? "bg-gradient-to-b from-indigo-500/[0.08] to-transparent border border-indigo-500/25"
-                      : "bg-white/[0.03] border border-white/[0.06]"
+                      ? "bg-gradient-to-b from-emerald-500/[0.08] to-transparent border border-emerald-500/25"
+                      : "bg-emerald-500/3 border border-emerald-500/8"
                   }`}
                 >
                   {plan.popular && (
                     <>
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-1 text-xs font-medium text-white shadow-lg shadow-indigo-500/25">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500 to-lime-400 px-4 py-1 text-xs font-medium text-white shadow-lg shadow-emerald-500/30">
                         Most Popular
                       </div>
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-indigo-500/[0.03] to-transparent pointer-events-none" />
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-emerald-500/[0.03] to-transparent pointer-events-none" />
                     </>
                   )}
 
@@ -183,8 +183,8 @@ export default function PricingPage() {
                     href="/signup"
                     className={`mt-8 inline-flex h-11 w-full items-center justify-center rounded-xl text-sm font-medium transition-all ${
                       plan.popular
-                        ? "bg-gradient-to-r from-indigo-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98]"
-                        : "border border-white/[0.12] text-white/70 hover:text-white hover:bg-white/[0.06] hover:border-white/[0.2]"
+                        ? "bg-gradient-to-r from-emerald-500 to-lime-400 text-white hover:shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                        : "border border-emerald-500/15 text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/8 hover:border-emerald-500/25"
                     }`}
                   >
                     {plan.cta}
@@ -211,10 +211,10 @@ export default function PricingPage() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-              <HelpCircle className="h-3.5 w-3.5 text-indigo-400" />
+              <HelpCircle className="h-3.5 w-3.5 text-emerald-400" />
               Billing FAQ
             </div>
-            <h2 className="text-3xl font-bold">Pricing{" "}<span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">questions</span></h2>
+            <h2 className="text-3xl font-bold">Pricing{" "}<span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">questions</span></h2>
           </div>
 
           <MotionStagger>
@@ -256,22 +256,22 @@ export default function PricingPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 border-t border-white/[0.04]">
+      <section className="py-16 border-t border-emerald-500/8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <MotionDiv className="relative rounded-2xl bg-gradient-to-br from-indigo-500/[0.08] via-purple-500/[0.04] to-cyan-500/[0.08] border border-indigo-500/20 p-8 md:p-16 text-center overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
+          <MotionDiv className="relative rounded-2xl bg-gradient-to-br from-emerald-500/[0.08] via-teal-500/[0.04] to-lime-500/[0.08] border border-emerald-500/20 p-8 md:p-16 text-center overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-lime-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
             <div className="relative z-10">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 Ready to get{" "}
-                <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">started</span>?
+                <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">started</span>?
               </h2>
               <p className="text-white/40 max-w-lg mx-auto mb-8">
-                Join thousands of developers who trust luau.uwu. Start free and upgrade when you need more.
+                Join thousands of developers who trust LuaCrypt. Start free and upgrade when you need more.
               </p>
               <Link
                 href="/signup"
-                className="group inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-8 text-sm font-semibold text-white transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02]"
+                className="group inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-lime-400 px-8 text-sm font-semibold text-white transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/25 hover:scale-[1.02]"
               >
                 <span className="flex items-center gap-2">
                   Start for free

@@ -35,21 +35,21 @@ const levels = [
     icon: Layers,
     desc: "Balanced protection with good performance. Includes control flow obfuscation and MBA expressions.",
     features: ["All Basic features", "Control flow obfuscation", "MBA expression injection", "Dead code injection", "Array scrambling"],
-    gradient: "from-cyan-500 to-teal-500",
+    gradient: "from-emerald-500 to-teal-500",
   },
   {
     name: "Full",
     icon: Cpu,
     desc: "Complete VM obfuscation. Transforms bytecode into a custom register-based virtual machine.",
     features: ["All Normal features", "Register VM transformation", "Multi-layer string encoding", "Opcode shuffling", "Control flow flattening", "Anti-debug injection"],
-    gradient: "from-indigo-500 to-purple-500",
+    gradient: "from-emerald-500 to-lime-500",
   },
   {
     name: "Maximum",
     icon: Swords,
     desc: "Maximum protection with anti-tamper and nested VM layers. For high-value scripts.",
     features: ["All Full features", "Nested VM layers", "Anti-tamper hooks", "Runtime integrity checks", "Custom cipher wrapping", "Polymorphic bootstrapper"],
-    gradient: "from-rose-500 to-pink-500",
+    gradient: "from-emerald-500 to-green-500",
   },
 ];
 

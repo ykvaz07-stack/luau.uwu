@@ -75,7 +75,7 @@ export default function LoginPage() {
             </Link>
             <h1 className="text-2xl font-bold">Welcome back</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Sign in to your luau.uwu account
+              Sign in to your LuaCrypt account
             </p>
           </div>
 
@@ -145,15 +145,14 @@ export default function LoginPage() {
       </div>
 
       {/* Right side - Branding */}
-      <div className="hidden lg:flex flex-1 items-center justify-center bg-muted/30 border-l border-border/50">
+      <div className="hidden lg:flex flex-1 items-center justify-center bg-emerald-500/3 border-l border-emerald-500/10">
         <div className="max-w-md text-center px-8">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
-            <Shield className="h-8 w-8 text-primary" />
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 mb-6">
+            <Shield className="h-8 w-8 text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-bold mb-4">luau.uwu</h2>
+          <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">LuaCrypt</h2>
           <p className="text-muted-foreground">
-            Professional script protection and key management for Roblox
-            developers.
+            Enterprise-grade script protection and key management for Roblox developers.
           </p>
         </div>
       </div>

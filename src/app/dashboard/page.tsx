@@ -124,7 +124,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome to luau.uwu. Here&apos;s an overview of your account.
+          Welcome to LuaCrypt. Here&apos;s an overview of your account.
         </p>
       </div>
 
@@ -136,8 +136,8 @@ export default function DashboardPage() {
             className="group rounded-xl glass-card p-6"
           >
             <div className="flex items-center justify-between mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <stat.icon className="h-5 w-5 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
+                <stat.icon className="h-5 w-5 text-emerald-400" />
               </div>
               <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
@@ -156,8 +156,8 @@ export default function DashboardPage() {
               href={action.href}
               className="group rounded-xl glass-card p-6"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 mb-4 group-hover:bg-primary/20 transition-colors">
-                <action.icon className="h-5 w-5 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 mb-4 group-hover:bg-emerald-500/20 transition-colors">
+                <action.icon className="h-5 w-5 text-emerald-400" />
               </div>
               <h3 className="font-semibold mb-1">{action.label}</h3>
               <p className="text-sm text-muted-foreground">{action.description}</p>

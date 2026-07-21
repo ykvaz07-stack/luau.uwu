@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "luau.uwu - Script Protection & Key System for Roblox",
+  title: "LuaCrypt — Script Protection & Key Management",
   description:
-    "Protect your Roblox scripts with VM obfuscation, manage license keys with HWID locking, and control access. Built for Roblox developers.",
-  keywords: ["roblox", "luau", "obfuscation", "key system", "script protection", "hwid"],
+    "Enterprise-grade VM obfuscation, license key management with HWID locking, and secure script hosting for Luau developers.",
+  keywords: ["luau", "lua", "obfuscation", "key system", "script protection", "hwid", "luacrypt"],
   icons: { icon: "/favicon.ico" },
   openGraph: {
-    title: "luau.uwu - Script Protection & Key System",
-    description: "Professional VM obfuscation, key management, and script protection for Roblox developers.",
+    title: "LuaCrypt — Script Protection & Key Management",
+    description: "Enterprise-grade VM obfuscation, key management, and script protection for Luau developers.",
     type: "website",
   },
 };

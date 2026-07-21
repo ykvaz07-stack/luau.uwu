@@ -26,7 +26,7 @@ const commands = [
   {
     category: "User Commands",
     icon: Users,
-    color: "from-cyan-500 to-teal-500",
+    color: "from-emerald-500 to-teal-500",
     items: [
       { cmd: "/redeem <key>", desc: "Redeem a license key and link your Discord account." },
       { cmd: "/resethwid", desc: "Reset your HWID to bind your key to a new machine." },
@@ -61,7 +61,7 @@ const commands = [
     icon: LogIn,
     color: "from-green-500 to-emerald-500",
     items: [
-      { cmd: "/login <api_key>", desc: "Authenticate the bot with your luau.uwu API key." },
+      { cmd: "/login <api_key>", desc: "Authenticate the bot with your LuaCrypt API key." },
       { cmd: "/setpanel <channel>", desc: "Set up the user control panel in a channel." },
       { cmd: "/setlogs <channel>", desc: "Configure the logging channel for bot actions." },
       { cmd: "/logout", desc: "Disconnect the bot from your account." },
@@ -79,7 +79,7 @@ export default function DiscordBotPage() {
       <div>
         <h1 className="text-3xl font-bold mb-4">Discord Bot</h1>
         <p className="text-white/40 leading-relaxed">
-          The luau.uwu Discord bot allows you to manage keys, whitelist users, and control access — all from your Discord server.
+           The LuaCrypt Discord bot allows you to manage keys, whitelist users, and control access — all from your Discord server.
         </p>
       </div>
 

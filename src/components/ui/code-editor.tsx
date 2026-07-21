@@ -13,11 +13,11 @@ const luauTheme = EditorView.theme({
     fontFamily: "var(--font-geist-mono), monospace",
   },
   ".cm-content": {
-    caretColor: "#6366f1",
+    caretColor: "#10b981",
     padding: "12px 0",
   },
   ".cm-cursor": {
-    borderLeftColor: "#6366f1",
+    borderLeftColor: "#10b981",
     borderLeftWidth: "2px",
   },
   ".cm-selectionBackground": {
@@ -49,15 +49,15 @@ const luauTheme = EditorView.theme({
 }, { dark: true });
 
 const luauHighlighting = EditorView.baseTheme({
-  ".tok-keyword": { color: "#22d3ee" },
-  ".tok-string": { color: "#6366f1" },
+  ".tok-keyword": { color: "#34d399" },
+  ".tok-string": { color: "#10b981" },
   ".tok-number": { color: "#fbbf24" },
   ".tok-comment": { color: "oklch(0.45 0 0)", fontStyle: "italic" },
   ".tok-function": { color: "#67e8f9" },
   ".tok-variable": { color: "oklch(0.85 0 0)" },
-  ".tok-operator": { color: "#6366f1" },
+  ".tok-operator": { color: "#10b981" },
   ".tok-punctuation": { color: "oklch(0.6 0 0)" },
-  ".tok-builtin": { color: "#22d3ee" },
+  ".tok-builtin": { color: "#34d399" },
   ".tok-type": { color: "#7dd3fc" },
   ".tok-constant": { color: "#ffd700" },
   ".tok-property": { color: "oklch(0.85 0 0)" },

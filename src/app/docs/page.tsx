@@ -10,28 +10,28 @@ const docCards = [
     desc: "Learn how to sign up, create your first project, upload scripts, and generate license keys.",
     icon: BookOpen,
     href: "/docs/getting-started",
-    gradient: "from-indigo-500 to-purple-500",
+    gradient: "from-emerald-500 to-teal-500",
   },
   {
     title: "Obfuscation Guide",
     desc: "Understand VM obfuscation levels, how to configure protections, and best practices.",
     icon: Cpu,
     href: "/docs/obfuscation",
-    gradient: "from-purple-500 to-pink-500",
+    gradient: "from-emerald-500 to-lime-500",
   },
   {
     title: "API Reference",
     desc: "Complete API documentation for key validation, script delivery, and webhooks.",
     icon: Code,
     href: "/docs/api",
-    gradient: "from-cyan-500 to-teal-500",
+    gradient: "from-emerald-500 to-cyan-500",
   },
   {
     title: "Discord Bot",
     desc: "Set up and configure the Discord bot for automated key management and whitelisting.",
     icon: Bot,
     href: "/docs/discord-bot",
-    gradient: "from-amber-500 to-orange-500",
+    gradient: "from-lime-500 to-green-500",
   },
 ];
 
@@ -39,16 +39,16 @@ export default function DocsPage() {
   return (
     <div>
       <MotionDiv>
-        <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-sm text-white/50 mb-6">
-          <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/8 border border-emerald-500/15 px-4 py-1.5 text-sm text-emerald-300/80 mb-6">
+          <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
           Documentation
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold mb-4">
           Welcome to the{" "}
-          <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">luau.uwu</span> docs
+          <span className="bg-gradient-to-r from-emerald-400 to-lime-400 bg-clip-text text-transparent">LuaCrypt</span> docs
         </h1>
         <p className="text-white/40 mb-10 max-w-2xl leading-relaxed">
-          Everything you need to get started with luau.uwu — from setting up your first project to integrating the API and Discord bot.
+          Everything you need to get started with LuaCrypt — from setting up your first project to integrating the API and Discord bot.
         </p>
       </MotionDiv>
 
@@ -64,7 +64,7 @@ export default function DocsPage() {
               </div>
               <h2 className="text-lg font-semibold text-white/90 mb-2 group-hover:text-white transition-colors">{card.title}</h2>
               <p className="text-sm text-white/40 leading-relaxed mb-4">{card.desc}</p>
-              <span className="inline-flex items-center gap-1 text-sm text-indigo-400 group-hover:text-indigo-300 transition-colors">
+              <span className="inline-flex items-center gap-1 text-sm text-emerald-400 group-hover:text-emerald-300 transition-colors">
                 Read more
                 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
               </span>
@@ -83,7 +83,7 @@ export default function DocsPage() {
           href="https://discord.gg/luauuwu"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 text-sm font-medium text-white"
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-500 to-lime-400 px-4 text-sm font-medium text-white"
         >
           Join Discord
         </a>

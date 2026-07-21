@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const codeLines = [
-  'local script = loadstring(game:HttpGet("https://luau.uwu/api/scripts/abc123"))',
-  'local result = luau.uwu.obfuscate(script, { level = "full" })',
+  'local script = loadstring(game:HttpGet("https://luacrypt.dev/api/scripts/abc123"))',
+  'local crypt = LuaCrypt.new({ key = "YOUR_KEY" })',
   "print(\"Script protected successfully!\")",
 ];
 
@@ -79,16 +79,16 @@ export function TerminalDemo() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl overflow-hidden border border-[#6366f1]/20 shadow-2xl shadow-[#6366f1]/5"
+        className="rounded-xl overflow-hidden border border-emerald-500/20 shadow-2xl shadow-emerald-500/5"
       >
-        <div className="flex items-center gap-2 px-4 py-3 bg-[#0a0819] border-b border-[#6366f1]/10">
+        <div className="flex items-center gap-2 px-4 py-3 bg-[#050a05] border-b border-emerald-500/10">
           <div className="h-3 w-3 rounded-full bg-red-500/80" />
           <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
           <div className="h-3 w-3 rounded-full bg-green-500/80" />
-          <span className="ml-3 text-xs text-white/30 font-mono">luau.uwu terminal</span>
+          <span className="ml-3 text-xs text-emerald-400/50 font-mono">LuaCrypt v0.1</span>
         </div>
 
-        <div className="bg-[#0d0b1e] p-5 min-h-[220px] relative">
+        <div className="bg-[#061006] p-5 min-h-[220px] relative">
           <AnimatePresence mode="wait">
             {phase < 3 && (
               <motion.div
@@ -110,7 +110,7 @@ export function TerminalDemo() {
                           <motion.span
                             animate={{ opacity: [1, 0] }}
                             transition={{ duration: 0.6, repeat: Infinity }}
-                            className="inline-block w-[2px] h-[1em] bg-[#22d3ee] ml-[1px] align-middle"
+                            className="inline-block w-[2px] h-[1em] bg-emerald-400 ml-[1px] align-middle"
                           />
                         </>
                       ) : null}
@@ -129,7 +129,7 @@ export function TerminalDemo() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setPhase(1)}
-                        className="relative px-6 py-2.5 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#22d3ee] text-white text-sm font-semibold cursor-pointer overflow-hidden"
+                        className="relative px-6 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-lime-400 text-white text-sm font-semibold cursor-pointer overflow-hidden"
                       >
                         <motion.div
                           className="absolute inset-0 bg-white/20"
@@ -150,8 +150,8 @@ export function TerminalDemo() {
                     className="mt-4 flex justify-center"
                   >
                     <motion.div
-                      className="relative px-6 py-2.5 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#22d3ee] text-white text-sm font-semibold"
-                      animate={{ boxShadow: ["0 0 0px rgba(99,102,241,0)", "0 0 25px rgba(99,102,241,0.5)", "0 0 0px rgba(99,102,241,0)"] }}
+                      className="relative px-6 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-lime-400 text-white text-sm font-semibold"
+                      animate={{ boxShadow: ["0 0 0px rgba(16,185,129,0)", "0 0 25px rgba(16,185,129,0.5)", "0 0 0px rgba(16,185,129,0)"] }}
                       transition={{ duration: 0.8 }}
                       onAnimationComplete={() => {
                         const t = setTimeout(() => setPhase(2), 600);
@@ -186,7 +186,7 @@ export function TerminalDemo() {
                     </div>
                     <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                       <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-[#6366f1] to-[#22d3ee]"
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-lime-400"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -194,7 +194,7 @@ export function TerminalDemo() {
                       {Array.from({ length: 5 }).map((_, i) => (
                         <motion.div
                           key={i}
-                          className="w-2 h-2 rounded-full bg-[#6366f1]"
+                          className="w-2 h-2 rounded-full bg-emerald-500"
                           animate={{
                             opacity: progress > i * 20 ? [0.3, 1, 0.3] : 0.1,
                             scale: progress > i * 20 ? [0.8, 1.2, 0.8] : 0.8,
@@ -217,14 +217,14 @@ export function TerminalDemo() {
                   >
                     <div className="relative">
                       <motion.div
-                        className="w-16 h-16 rounded-full bg-gradient-to-br from-[#22d3ee] to-[#06b6d4] flex items-center justify-center"
-                        animate={{
-                          boxShadow: [
-                            "0 0 0px rgba(6,182,212,0)",
-                            "0 0 40px rgba(6,182,212,0.4)",
-                            "0 0 0px rgba(6,182,212,0)",
-                          ],
-                        }}
+                        className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center"
+                      animate={{
+                        boxShadow: [
+                          "0 0 0px rgba(16,185,129,0)",
+                          "0 0 40px rgba(16,185,129,0.4)",
+                          "0 0 0px rgba(16,185,129,0)",
+                        ],
+                      }}
                         transition={{ duration: 2, repeat: Infinity }}
                       >
                         <motion.svg
@@ -255,7 +255,7 @@ export function TerminalDemo() {
                       className="text-center"
                     >
                       <div className="text-white font-semibold text-sm">Obfuscation Complete</div>
-                      <div className="text-[#22d3ee] text-xs font-mono mt-1">Script protected ✓</div>
+                      <div className="text-emerald-400 text-xs font-mono mt-1">Script protected ✓</div>
                     </motion.div>
                   </motion.div>
                 )}
@@ -270,7 +270,7 @@ export function TerminalDemo() {
           <motion.div
             key={step.label}
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              i <= phase ? "bg-gradient-to-r from-[#6366f1] to-[#22d3ee]" : "bg-white/10"
+              i <= phase ? "bg-gradient-to-r from-emerald-500 to-lime-400" : "bg-white/10"
             }`}
             initial={{ width: 32 }}
             animate={{
