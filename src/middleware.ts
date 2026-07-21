@@ -7,39 +7,19 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("placeholder")) {
-    return supabaseResponse;
-  }
+  if (supabaseUrl && supabaseKey && !supabaseUrl.includes("placeholder")) {
+    const { data: { user } } = await createSupabaseClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        headers: {
+          cookie: request.cookies.getAll().map(({ name, value }) => `${name}=${value}`).join("; "),
+        },
+      },
+    }).auth.getUser();
 
-  const cookieHeader = request.cookies
-    .getAll()
-    .map(({ name, value }) => `${name}=${value}`)
-    .join("; ");
-
-  const supabase = createSupabaseClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { cookie: cookieHeader } },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isPublicPage =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup") ||
-    request.nextUrl.pathname.startsWith("/auth") ||
-    request.nextUrl.pathname.startsWith("/api") ||
-    request.nextUrl.pathname === "/";
-
-  if (!user && !isPublicPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
-    logIpBackground(supabaseUrl, supabaseKey, user.id, request);
+    if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
+      logIpBackground(supabaseUrl, supabaseKey, user.id, request);
+    }
   }
 
   return supabaseResponse;
@@ -60,8 +40,8 @@ function logIpBackground(
       "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";
-
     const path = request.nextUrl.pathname;
+
     let action = "page_view";
     if (path.includes("/login")) action = "login";
     else if (path.includes("/signup")) action = "signup";
