@@ -1,0 +1,24 @@
+# Example Cloudflare Tunnel config for luacrypt self-hosting
+# Copy this to ~/.cloudflared/config.yml and fill in your tunnel ID.
+
+tunnel: YOUR_TUNNEL_ID_HERE
+credentials-file: /home/YOUR_USER/.cloudflared/YOUR_TUNNEL_ID_HERE.json
+
+# Optional: enable Cloudflare's observability for the tunnel
+# (logs to Cloudflare dashboard, free for all plans)
+# logfile: /var/log/cloudflared.log
+# loglevel: info
+
+# Route traffic to your locally-running Next.js app
+ingress:
+  # Main domain
+  - hostname: luacrypt.com
+    service: http://localhost:3000
+  # Wildcard subdomain (so api.luacrypt.com, dashboard.luacrypt.com, etc. all work)
+  - hostname: "*.luacrypt.com"
+    service: http://localhost:3000
+  # Health check endpoint (useful for uptime monitors)
+  - hostname: health.luacrypt.com
+    service: http://localhost:3000/api/echo-headers
+  # Catch-all: 404 for anything not matched
+  - service: http_status:404

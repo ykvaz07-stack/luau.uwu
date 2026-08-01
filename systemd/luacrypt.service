@@ -1,0 +1,28 @@
+# Example systemd unit for running the Next.js app 24/7
+# Copy to /etc/systemd/system/luacrypt.service and adjust paths/user.
+
+[Unit]
+Description=LuaCrypt (scriptshield) Next.js
+After=network.target cloudflared.service
+Wants=cloudflared.service
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/luau.uwu
+EnvironmentFile=/home/YOUR_USER/luau.uwu/.env.production
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/luacrypt.log
+StandardError=append:/var/log/luacrypt.log
+
+# Hardening (Cloudflare Tunnel handles all inbound, so the local
+# app doesn't need to listen on a public interface)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
