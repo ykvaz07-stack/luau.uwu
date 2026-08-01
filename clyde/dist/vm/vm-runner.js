@@ -127,6 +127,11 @@ export function runVM(K, code, env, key = 0, protos = [], initLocals = {}, upval
             else if (op === 8 /* Op.STORE_G */) {
                 env[K[code[ip++]]] = pop();
             }
+            else if (op === 57 /* Op.STORE_CODE */) {
+                const targetIdx = code[ip++];
+                const kIdx = code[ip++];
+                code[targetIdx] = K[kIdx];
+            }
             else if (op === 9 /* Op.ADD */) {
                 const b = pop();
                 const a = pop();

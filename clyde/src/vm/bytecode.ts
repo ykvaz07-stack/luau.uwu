@@ -70,6 +70,7 @@ export const enum Op {
   PCALL = 54,
   XPCALL = 55,
   ITER_PREP = 56,
+  STORE_CODE = 57,
 }
 
 export function emit(chunk: BytecodeChunk, op: Op, ...args: number[]): void {

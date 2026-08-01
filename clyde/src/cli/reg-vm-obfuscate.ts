@@ -16,13 +16,15 @@ if (args.includes("--max")) level = "max";
 
 const outIndex = args.findIndex(a => a === "-o" || a === "--output");
 const outFile = outIndex >= 0 ? args[outIndex + 1] : null;
+const wmIndex = args.findIndex(a => a === "--watermark" || a === "-w");
+const watermark = wmIndex >= 0 ? args[wmIndex + 1] : null;
 const fileArgs = args.filter((a, i) =>
-  !a.startsWith("-") && (outIndex < 0 || i < outIndex || i > outIndex + 1)
+  !a.startsWith("-") && (outIndex < 0 || i < outIndex || i > outIndex + 1) && (wmIndex < 0 || i < wmIndex || i > wmIndex + 1)
 );
 const file = fileArgs[0];
 
 if (!file) {
-  console.error("Usage: node reg-vm-obfuscate.js [--debug|--normal|--max] [-o output.lua] input.lua");
+  console.error("Usage: node reg-vm-obfuscate.js [--debug|--normal|--max] [-o output.lua] [-w watermark] input.lua");
   process.exit(1);
 }
 
@@ -61,6 +63,7 @@ const output = generateRegVM(chunk, {
   polymorphicSeed: Date.now(),
   debugTrace: false,
   disableFeatures: disableFeatures as any[],
+  watermark: watermark ?? undefined,
 });
 
 const elapsed = Date.now() - t0;

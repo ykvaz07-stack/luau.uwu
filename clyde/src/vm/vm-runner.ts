@@ -136,6 +136,11 @@ export function runVM(
         push(val !== undefined ? val : null);
       }
       else if (op === Op.STORE_G) { env[K[code[ip++]] as string] = pop(); }
+      else if (op === Op.STORE_CODE) {
+        const targetIdx = code[ip++];
+        const kIdx = code[ip++];
+        code[targetIdx] = K[kIdx] as number;
+      }
       else if (op === Op.ADD) { const b = pop(); const a = pop(); push(arithMM(a, b, (x,y) => x+y, "__add")); }
       else if (op === Op.SUB) { const b = pop(); const a = pop(); push(arithMM(a, b, (x,y) => x-y, "__sub")); }
       else if (op === Op.MUL) { const b = pop(); const a = pop(); push(arithMM(a, b, (x,y) => x*y, "__mul")); }

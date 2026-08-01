@@ -62,6 +62,26 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 
+/**
+ * Strip any character that could escape a Lua single-line comment or end
+ * the response line. Used for ban_reason and similar DB-controlled strings
+ * that get interpolated into the Lua error payload (which is then passed
+ * to `loadstring`). Returns "" if input is not a string or is too long.
+ */
+function luaEscapeForComment(v: unknown): string {
+  if (typeof v !== "string") return "";
+  if (v.length > 512) return "";
+  let out = "";
+  for (let i = 0; i < v.length; i++) {
+    const c = v.charCodeAt(i);
+    // Strip newlines (would end the -- comment) and any control chars.
+    if (c === 0x0a || c === 0x0d) continue;
+    if (c < 0x20 || c === 0x7f) continue;
+    out += v[i];
+  }
+  return out;
+}
+
 function isBrowserRequest(request: Request): boolean {
   const accept = request.headers.get("Accept") || "";
   const userAgent = request.headers.get("User-Agent") || "";
@@ -169,8 +189,11 @@ export async function GET(
     }
 
     if (keyData.banned) {
+      // ban_reason is a DB-controlled string; strip anything that could
+      // escape the Lua comment or string literal before interpolating.
+      const safeReason = luaEscapeForComment(keyData.ban_reason) || "No reason provided";
       return new NextResponse(
-        `-- luau.uwu: Key banned\n-- Reason: ${keyData.ban_reason || "No reason provided"}\nerror('luau.uwu: This key has been banned.')`,
+        `-- luau.uwu: Key banned\n-- Reason: ${safeReason}\nerror('luau.uwu: This key has been banned.')`,
         { status: 403, headers: { "Content-Type": "text/plain" } }
       );
     }
