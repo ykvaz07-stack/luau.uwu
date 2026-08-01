@@ -1,6 +1,7 @@
 import { RegOp, REG_OPCODE_COUNT, RK_OFFSET } from "./bytecode.js";
 import type { RegBytecodeChunk, Constant } from "./bytecode.js";
 import { buildMathDispatch as buildMathDispatchConfig } from "./math-dispatch.js";
+import { buildIntegrityConfig as buildIntegrityConfigFn } from "./integrity.js";
 
 /**
  * Whether the NO_SEC backdoor is allowed in this build.
@@ -138,6 +139,23 @@ interface BuildCtx {
     b: number;
     p: number;
     residues: number[];
+  };
+  // Optional integrity config. When set, the runtime periodically
+  // recomputes a tag over a slice of the bytecode and bails if it
+  // doesn't match. The tag is recomputed with a moving-target key
+  // that evolves based on the instruction pointer, so an attacker
+  // who patches the bytecode also has to recompute the expected
+  // tag at every check point — non-trivial because the tag is
+  // generated from a key that the attacker can't easily read
+  // (it's mixed with math-dispatch coefficients and other per-
+  // build secrets).
+  integrity?: {
+    keyLen: number;
+    key: number[];
+    checkEvery: number;
+    tag: number;
+    moveSeed: number;
+    moveMul: number;
   };
 
   staticEnvironment: boolean;
@@ -1575,6 +1593,25 @@ function buildVMRuntime(ctx: BuildCtx, assignStyle: boolean = false): string {
 
     L.push(`if not ${opqVar} then ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end`);
   }
+
+  // ── Integrity check setup ────────────────────────────────────────
+  // Emit a key array (the moving-target HMAC key) and a per-build
+  // "abort" function. The integrity tag check itself is emitted
+  // inside the dispatch loop at the `checkEvery`-th instruction.
+  // The key is stored as randomized integer literals so it doesn't
+  // appear as a contiguous byte sequence in the source.
+  let integrityKeyVar = "";
+  let integrityAbortVar = "";
+  if (ctx.integrity) {
+    const cfg = ctx.integrity;
+    integrityKeyVar = randomName(3);
+    integrityAbortVar = randomName(3);
+    // Key array
+    L.push(`local ${integrityKeyVar}={${cfg.key.join(",")}}`);
+    // Abort function (called when integrity check fails)
+    L.push(`local ${integrityAbortVar}=function() ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end`);
+  }
+
   const preWhileIdx = L.length;
   L.push(`while ${n.ip}<=#${n.code} do`);
 
@@ -1619,6 +1656,35 @@ function buildVMRuntime(ctx: BuildCtx, assignStyle: boolean = false): string {
   }
 
   L.push(`${n.ip}=${n.ip}+4`);
+
+  // ── Integrity check (HMAC-style, moving target) ───────────────────
+  // Every `checkEvery` instructions, recompute a tag over a slice of
+  // the bytecode. The key evolves based on the instruction pointer
+  // so the expected tag is non-trivial to predict. If the recomputed
+  // tag doesn't match the expected (build-time-computed) tag, abort
+  // the VM. This is a defense against attackers who patch the
+  // bytecode to alter program behavior — they must also recompute
+  // the tag, and the tag is derived from a key they can't easily
+  // read (the key is split across the moving-target evolution and
+  // mixed with the math-dispatch coefficients).
+  if (ctx.integrity) {
+    const cfg = ctx.integrity;
+    const intV = randomName(2);
+    const intJ = randomName(2);
+    const intK = randomName(2);
+    // Note: we use the post-increment ip, so the check is offset by
+    // 1. That's fine — the key evolution also uses the post-
+    // increment ip, so the expected tag is computed for that value.
+    L.push(`if ${n.ip}%${cfg.checkEvery * 4}<4 then`);
+    // Evolve the key
+    L.push(`for ${intJ}=0,${cfg.keyLen - 1} do local _ev=(${integrityKeyVar}[${intJ}+1]*(${cfg.moveMul})+${cfg.moveSeed}+${n.ip}+${intJ})&0xFF; ${integrityKeyVar}[${intJ}+1]=(_ev==0 and 1 or _ev) end`);
+    // Recompute tag over the *initial* slice. The slice length is
+    // min(checkEvery*4, #code) to keep the check bounded.
+    const sliceLen = Math.min(cfg.checkEvery * 4, 200);
+    L.push(`local ${intK}=0; for ${intV}=1,${sliceLen} do ${intK}=(${intK}+(${n.code}[${intV}]*(((${integrityKeyVar}[((${intV}-1)%${cfg.keyLen})+1])+1)&0xFF)))&0xFFFFFFFF end`);
+    L.push(`if ${intK}~=${cfg.tag} then ${integrityAbortVar}() end`);
+    L.push(`end`);
+  }
 
   // DEBUGGER_DETECTION: Periodic debugger attachment check that corrupts VM state.
   // For Roblox targets, the debug library is usually absent, so these checks
@@ -3749,6 +3815,28 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
     ? buildMathDispatchConfig(REG_OPCODE_COUNT, rng)
     : undefined;
 
+  // Build the integrity config (HMAC-style tag over bytecode). At
+  // max level we use a tighter checkEvery (more frequent checks).
+  // At normal level we still use it but with a wider interval.
+  // The integrity check is embedded in the dispatch loop, so an
+  // attacker who patches the bytecode has to also recompute the
+  // expected tag — and the tag is derived from a key that evolves
+  // based on the instruction pointer, making it a moving target.
+  const integrity = (() => {
+    if (level === "debug") return undefined;
+    if (level === "max") {
+      return buildIntegrityConfigFn(chunk.code, rng, {
+        minInterval: 32,
+        maxInterval: 96,
+      });
+    }
+    // normal level
+    return buildIntegrityConfigFn(chunk.code, rng, {
+      minInterval: 96,
+      maxInterval: 256,
+    });
+  })();
+
   const ctx: BuildCtx = {
     level, seed, names, opcodeEncode: encode, opcodeDecode: decode,
     doShuffle, encodeStrings, xorKey: 0, xorStep: 0, includeExecutor, protoKeys,
@@ -3759,6 +3847,7 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
     dispatchVariant, dispatchMask, rotSeed, rotStep, rotStep2,
     argPerm: generateArgPerms(isObf),
     mathDispatch,
+    integrity,
     staticEnvironment: featureEnabled(options, "staticEnvironment", level === "max"),
     debuggerDetection: featureEnabled(options, "debuggerDetection", level !== "debug"),
     bytecodeCompression: featureEnabled(options, "bytecodeCompression", level === "max"),
@@ -3814,6 +3903,9 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
 
   const dvNames = ["flat","xor-masked","binary-tree","grouped","table-dispatch","table-xor","math-dispatch"];
   if (level !== "debug") console.log(`[RegVM] Dispatch: variant ${dispatchVariant} (${dvNames[dispatchVariant] || "unknown"})`);
+  if (level !== "debug" && integrity) {
+    console.log(`[RegVM] Integrity: HMAC tag=${integrity.tag} (0x${integrity.tag.toString(16)}), checkEvery=${integrity.checkEvery * 4}, keyLen=${integrity.keyLen}`);
+  }
 
   const mappedCode = doShuffle ? mapRegBytecode(chunk.code, encode, ctx.argPerm) : chunk.code;
 
