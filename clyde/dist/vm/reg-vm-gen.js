@@ -3176,14 +3176,18 @@ function generateDynamicSeed(chunk) {
     mix(Date.now() >>> 16);
     mix((Math.random() * 0xFFFFFFFF) >>> 0);
     mix((Math.random() * 0xFFFFFFFF) >>> 0);
+    // Use performance.now() (browser/edge-compatible) instead of
+    // process.hrtime() to avoid Edge Runtime warnings.
     try {
-        const hr = process.hrtime();
-        mix(hr[0]);
-        mix(hr[1]);
+        const now = (typeof performance !== "undefined" ? performance : Date).now();
+        mix(now);
+        mix(now >>> 16);
     }
     catch { }
+    // process.pid is Node-only; in edge runtimes skip it silently.
     try {
-        mix(process.pid);
+        if (typeof process !== "undefined" && typeof process.pid === "number")
+            mix(process.pid);
     }
     catch { }
     try {

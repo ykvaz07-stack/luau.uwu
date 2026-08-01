@@ -3547,9 +3547,12 @@ function generateDynamicSeed(chunk: RegBytecodeChunk): number {
   mix((Math.random() * 0xFFFFFFFF) >>> 0);
   mix((Math.random() * 0xFFFFFFFF) >>> 0);
 
-  try { const hr = process.hrtime(); mix(hr[0]); mix(hr[1]); } catch {}
+  // Use performance.now() (browser/edge-compatible) instead of
+  // process.hrtime() to avoid Edge Runtime warnings.
+  try { const now = (typeof performance !== "undefined" ? performance : Date).now(); mix(now); mix(now >>> 16); } catch {}
 
-  try { mix(process.pid); } catch {}
+  // process.pid is Node-only; in edge runtimes skip it silently.
+  try { if (typeof process !== "undefined" && typeof process.pid === "number") mix(process.pid); } catch {}
 
   try { const cb = getRandomBytes(16); const dv = new DataView(cb.buffer, cb.byteOffset, cb.byteLength); for (let i = 0; i < 16; i += 4) mix(dv.getUint32(i, true)); } catch {}
 
