@@ -4,7 +4,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # OpenNext adapter output
 [build]
-command = "npm run cf-build"
+command = "npm run build"
 
 [assets]
 directory = ".open-next/assets"
