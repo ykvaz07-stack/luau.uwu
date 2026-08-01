@@ -1,4 +1,5 @@
 import { REG_OPCODE_COUNT, RK_OFFSET } from "./bytecode.js";
+import { buildMathDispatch as buildMathDispatchConfig } from "./math-dispatch.js";
 /**
  * Whether the NO_SEC backdoor is allowed in this build.
  *
@@ -1535,6 +1536,59 @@ function buildVMRuntime(ctx, assignStyle = false) {
         L.push(`elseif ${opVar}==${retOp} then ${bodies.get(retOp) || ''}`);
         L.push(`elseif ${opVar}==${tcOp} then ${bodies.get(tcOp) || ''}`);
         L.push(`end`);
+    }
+    else if (dv === 6) {
+        // ── Mathematical opcode dispatch (variant 6) ───────────────────
+        //
+        // The classical dispatch (variants 0–5) is defeated by hooking
+        // one of the `opVar == N` comparisons and reading the literal
+        // N — the bytecode program is recovered. This variant makes the
+        // comparison a per-build arithmetic identity: instead of
+        // `opVar == N`, the runtime computes
+        //     f = (a * opVar + b) mod p
+        // and compares f against a precomputed residue R_N. To recover
+        // N from an observed R, the attacker has to factor a, b, p out
+        // of the constant pool and then invert the polynomial.
+        //
+        // a, b, p are all < 2^16 so a * opVar < 2^32 — the product is
+        // exactly representable in double-precision floats in both JS
+        // and Lua, so the dispatch is portable without needing BigInt /
+        // Lua 5.3 integer types.
+        const md = ctx.mathDispatch;
+        if (!md) {
+            throw new Error("dispatch variant 6 requires mathDispatch config");
+        }
+        const aConst = md.a;
+        const bConst = md.b;
+        const pConst = md.p;
+        const fVar = randomName(2);
+        // Compute the polynomial. We do the +p then %p trick so the
+        // result is always in [0, p) regardless of the sign of the
+        // intermediate `a * opVar` (which is always positive for our
+        // range, but the explicit form is defensive).
+        L.push(`local ${fVar}=(((${aConst})*(${opVar})+(${bConst}))%(${pConst})+(${pConst}))%(${pConst})`);
+        // Shuffle the order of comparisons so the source layout doesn't
+        // leak the opcode-to-residue mapping. (An attacker reading
+        // `if f == 49152 then OP_MOVE` learns nothing; shuffling the
+        // order of the elseif clauses means the *position* of the line
+        // also doesn't reveal the opcode.)
+        const cmpOrder = [...validOps];
+        for (let i = cmpOrder.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [cmpOrder[i], cmpOrder[j]] = [cmpOrder[j], cmpOrder[i]];
+        }
+        let isFirst = true;
+        for (const sOp of cmpOrder) {
+            const body = bodies.get(sOp);
+            if (!body || body.trim() === '')
+                continue;
+            const residue = md.residues[sOp];
+            const prefix = isFirst ? 'if' : 'elseif';
+            L.push(`${prefix} ${fVar}==${residue} then ${body}`);
+            isFirst = false;
+        }
+        if (!isFirst)
+            L.push(`end`);
     }
     L.push(`end`);
     L.push(`end`);
@@ -3316,11 +3370,35 @@ export function generateRegVM(chunk, options = {}) {
         Math.floor(rng() * 3), Math.floor(rng() * 3),
     ];
     const isObf = level !== "debug";
-    const dispatchVariant = isObf ? (1 + Math.floor(rng() * 5)) : 0;
+    // Dispatch variant distribution: in max level, prefer the new
+    // mathematical-dispatch variant (6) which is materially harder to
+    // attack than variants 0-5 (it is the same general technique used
+    // by RoxGuard and modern Luraph builds, and is the defense that
+    // defeats the standard "hook the dispatch and read the literal
+    // opcode" attack documented in birk.blog's Luraph v14.7 series).
+    // In normal level, we still sometimes use it (1/6 chance) so users
+    // get the benefit at every tier; in debug level we always use the
+    // simple linear chain for readability.
+    const dispatchVariant = (() => {
+        if (level === "debug")
+            return 0;
+        if (level === "max") {
+            // 60% math dispatch, 40% other variants (1..5)
+            return rng() < 0.6 ? 6 : (1 + Math.floor(rng() * 5));
+        }
+        // normal: 50% math dispatch, 50% other variants
+        return rng() < 0.5 ? 6 : (1 + Math.floor(rng() * 5));
+    })();
     const dispatchMask = isObf ? (1 + Math.floor(rng() * 254)) : 0;
     const rotSeed = isObf ? (1 + Math.floor(rng() * 254)) : 0;
     const rotStep = isObf ? (1 + Math.floor(rng() * 254)) : 0;
     const rotStep2 = isObf ? (1 + Math.floor(rng() * 254)) : 0;
+    // If we picked the mathematical-dispatch variant, build the
+    // per-build polynomial config now. The same config is referenced
+    // by the dispatch-emission code.
+    const mathDispatch = dispatchVariant === 6
+        ? buildMathDispatchConfig(REG_OPCODE_COUNT, rng)
+        : undefined;
     const ctx = {
         level, seed, names, opcodeEncode: encode, opcodeDecode: decode,
         doShuffle, encodeStrings, xorKey: 0, xorStep: 0, includeExecutor, protoKeys,
@@ -3330,6 +3408,7 @@ export function generateRegVM(chunk, options = {}) {
         spiralPrime, spiralOffset, layerVariants,
         dispatchVariant, dispatchMask, rotSeed, rotStep, rotStep2,
         argPerm: generateArgPerms(isObf),
+        mathDispatch,
         staticEnvironment: featureEnabled(options, "staticEnvironment", level === "max"),
         debuggerDetection: featureEnabled(options, "debuggerDetection", level !== "debug"),
         bytecodeCompression: featureEnabled(options, "bytecodeCompression", level === "max"),
@@ -3376,7 +3455,7 @@ export function generateRegVM(chunk, options = {}) {
         ctx.usedOps = used;
         console.log(`[RegVM] Dead handler elimination: ${used.size}/${handlerRegistry.size} opcodes used`);
     }
-    const dvNames = ["flat", "xor-masked", "binary-tree", "grouped", "table-dispatch", "table-xor"];
+    const dvNames = ["flat", "xor-masked", "binary-tree", "grouped", "table-dispatch", "table-xor", "math-dispatch"];
     if (level !== "debug")
         console.log(`[RegVM] Dispatch: variant ${dispatchVariant} (${dvNames[dispatchVariant] || "unknown"})`);
     const mappedCode = doShuffle ? mapRegBytecode(chunk.code, encode, ctx.argPerm) : chunk.code;
