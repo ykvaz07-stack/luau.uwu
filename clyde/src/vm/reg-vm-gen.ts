@@ -2,6 +2,7 @@ import { RegOp, REG_OPCODE_COUNT, RK_OFFSET } from "./bytecode.js";
 import type { RegBytecodeChunk, Constant } from "./bytecode.js";
 import { buildMathDispatch as buildMathDispatchConfig } from "./math-dispatch.js";
 import { buildIntegrityConfig as buildIntegrityConfigFn } from "./integrity.js";
+import { emitRobloxAntiDebug } from "../obfuscator/RobloxAntiDebug.js";
 
 /**
  * Whether the NO_SEC backdoor is allowed in this build.
@@ -1610,6 +1611,35 @@ function buildVMRuntime(ctx: BuildCtx, assignStyle: boolean = false): string {
     L.push(`local ${integrityKeyVar}={${cfg.key.join(",")}}`);
     // Abort function (called when integrity check fails)
     L.push(`local ${integrityAbortVar}=function() ${n.R}={};${n.code}={};${n.ip}=#${n.code}+1 end`);
+  }
+
+  // ── Roblox anti-debug ───────────────────────────────────────────
+  // Detect and sabotage executor RE-tool globals (hookfunction,
+  // hookmetamethod, getupvalue, getconstants, getgc, etc.). The
+  // classical anti-debug only checks `debug.getinfo` which is 1)
+  // absent from Roblox Luau and 2) not what executors actually use.
+  // This real version checks for the actual RE toolkit used by
+  // Synapse, Fluxus, Wave, etc. — and replaces any detected tools
+  // with safe stubs that return the input unchanged, so even if
+  // the script is loaded and analyzed, the tools are useless.
+  //
+  // We emit this for any target — the checks are pcall-wrapped and
+  // the globals don't exist outside Roblox so the check is a no-op
+  // in non-Roblox environments. This is also why it's better to
+  // always emit: the cost is one-time and the protection is real
+  // when the script runs in a Roblox executor.
+  if (ctx.integrity) {
+    const antiDebugSrc = emitRobloxAntiDebug({
+      toolNames: [],
+      sabotage: true,
+      checkGetenv: true,
+      envProbes: ["_G", "getgenv", "getrenv"],
+      recursiveProbe: false,
+    }, integrityAbortVar, rng);
+    // Push the multi-line block as a single source line per row.
+    for (const line of antiDebugSrc.split("\n")) {
+      L.push(line);
+    }
   }
 
   const preWhileIdx = L.length;
@@ -3905,6 +3935,9 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
   if (level !== "debug") console.log(`[RegVM] Dispatch: variant ${dispatchVariant} (${dvNames[dispatchVariant] || "unknown"})`);
   if (level !== "debug" && integrity) {
     console.log(`[RegVM] Integrity: HMAC tag=${integrity.tag} (0x${integrity.tag.toString(16)}), checkEvery=${integrity.checkEvery * 4}, keyLen=${integrity.keyLen}`);
+  }
+  if (level !== "debug" && integrity) {
+    console.log(`[RegVM] Roblox anti-debug: enabled (RE-tool detection + sabotage)`);
   }
 
   const mappedCode = doShuffle ? mapRegBytecode(chunk.code, encode, ctx.argPerm) : chunk.code;
