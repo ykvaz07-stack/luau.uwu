@@ -1,5 +1,27 @@
 import { RegOp, REG_OPCODE_COUNT, RK_OFFSET } from "./bytecode.js";
 import type { RegBytecodeChunk, Constant } from "./bytecode.js";
+
+/**
+ * Whether the NO_SEC backdoor is allowed in this build.
+ *
+ * NO_SEC is a development-only flag that disables integrity / anti-tamper
+ * checks in the generated VM. It MUST be a no-op in production builds;
+ * shipping a script with NO_SEC=1 means anyone can patch the bytecode
+ * without the integrity check complaining.
+ *
+ * We treat anything that looks like a production build (NODE_ENV === "production",
+ * or absence of NODE_ENV at all — which is what `next build` produces) as
+ * locked-down. NO_SEC only takes effect when NODE_ENV is explicitly "development"
+ * or "test".
+ */
+function isNoSecAllowed(): boolean {
+  if (process.env.NO_SEC !== "1") return false;
+  const env = process.env.NODE_ENV;
+  // Default to safe: if NODE_ENV is unset (typical for ad-hoc CLI usage), be
+  // paranoid and refuse NO_SEC. Only honor it in explicit dev/test builds.
+  return env === "development" || env === "test";
+}
+
 let _randomBytes: ((size: number) => Uint8Array) | null = null;
 function getRandomBytes(size: number): Uint8Array {
   if (_randomBytes === null) {
@@ -1334,7 +1356,7 @@ function buildBuiltinCaptures(ctx: BuildCtx): { code: string; assignOnly: string
     [checks[ci], checks[cj]] = [checks[cj], checks[ci]];
   }
   const check = `local ${nHg}=${checks.join(" and ")}`;
-  const corrupt = process.env.NO_SEC === '1'
+  const corrupt = isNoSecAllowed()
     ? `do end`
     : `if not ${nHg} then ${n.bTcreate}=function() return {} end;${n.tPack}=function(...) return {n=0} end;${n.bPcall}=function() return false end;${n.bSelect}=function() return 0 end;${n.bMfloor}=function(x) return x end end`;
 
@@ -1613,7 +1635,7 @@ function buildVMRuntime(ctx: BuildCtx, assignStyle: boolean = false): string {
     L.push(`if ${n.ip}%${60000 + Math.floor(rng() * 40001)}<4 and ${nTwVm} then ${nTwVm}() end`);
   }
 
-  if (doMut && process.env.NO_SEC !== '1') {
+  if (doMut && !isNoSecAllowed()) {
     const secInterval = 500 + Math.floor(rng() * 1500);
     const secVar = randomName(3);
     const secCheckVariant = Math.floor(rng() * 3);
@@ -3230,7 +3252,7 @@ function wrapCustomCipher(source: string, layerOpts?: CipherLayerOpts): string {
     secL.push(`if ${nGuard} then ${nRawSet}(${nEv},${nCh}(${ccArgs(layerOpts.ownPipelineKey, true)}),${nFp}) end`);
   }
 
-  if (process.env.NO_SEC === '1') {
+  if (isNoSecAllowed()) {
 
     secL.length = 0;
     secL.push(`${nGuard}=true`);
@@ -3259,7 +3281,7 @@ function wrapCustomCipher(source: string, layerOpts?: CipherLayerOpts): string {
   const adFn = randomName(2);
   execL.push(`do local ${adOk},${adFn}=${nCPcall}(${nLd},${nCh}(${ccArgs("return 0", true)}));${adProbe}=${adProbe} and ${adOk}==true and ${nCType}(${adFn})==${nCh}(${ccArgs("function", true)}) end`);
 
-  if (process.env.NO_SEC !== '1') {
+  if (!isNoSecAllowed()) {
     execL.push(`if not ${adProbe} then for _i=1,#${nOut} do ${nOut}[_i]=${nCh}(${Math.floor(rng() * 94) + 33}) end end`);
   } else {
 

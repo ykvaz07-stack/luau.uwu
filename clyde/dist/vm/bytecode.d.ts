@@ -62,7 +62,8 @@ export declare const enum Op {
     TFOR = 53,
     PCALL = 54,
     XPCALL = 55,
-    ITER_PREP = 56
+    ITER_PREP = 56,
+    STORE_CODE = 57
 }
 export declare function emit(chunk: BytecodeChunk, op: Op, ...args: number[]): void;
 export declare function addConst(chunk: BytecodeChunk, value: Constant): number;

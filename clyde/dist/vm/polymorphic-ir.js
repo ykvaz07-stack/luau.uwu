@@ -1,3 +1,4 @@
+import { addConst } from "./bytecode.js";
 let _sng = Math.random;
 export function seedPolyRng(seed) {
     let s = seed | 0;
@@ -34,13 +35,34 @@ function instrLen(op) {
 const PATCHABLE_OPS = new Set([
     4 /* Op.PUSH_K */, 5 /* Op.LOAD_L */, 6 /* Op.STORE_L */, 7 /* Op.LOAD_G */, 8 /* Op.STORE_G */,
     28 /* Op.GET_TABLE */, 29 /* Op.SET_TABLE */, 30 /* Op.CALL */, 39 /* Op.CALL_MULTI */,
-    52 /* Op.NAMECALL */, 28 /* Op.GET_TABLE */
+    52 /* Op.NAMECALL */,
 ]);
+/**
+ * Build the polymorphic IR transform.
+ *
+ * Strategy: replace some PATCHABLE_OPS instructions in chunk.code with NOP
+ * placeholders. Prepend a "prelude" of STORE_CODE instructions that, at
+ * runtime, overwrite each placeholder with its real opcode + real args.
+ *
+ * Because the prelude length is not known until we emit it, we do this in
+ * two passes:
+ *   1) Build the new code array (with NOP placeholders) and record each
+ *      patch's position relative to newCode.
+ *   2) Emit the prelude with placeholder target fields (= 0), then
+ *      overwrite those target fields with the correct finalPc values
+ *      (which depend on prelude length).
+ *
+ * STORE_CODE (Op.STORE_CODE = 57) is a runtime opcode that does
+ *   code[targetIdx] = K[kIdx]
+ * It must be handled in the VM dispatch (see vm-runner.ts).
+ */
 export function applyPolymorphicIR(chunk, options = {}) {
     const enabled = options.enabled !== false;
     if (!enabled)
         return chunk;
     const density = Math.min(1, Math.max(0, options.density ?? 0.4));
+    // Pass 1: build newCode (with NOPs for patched ops) and record each patch's
+    // newCode-relative position.
     const newCode = [];
     const patches = [];
     let i = 0;
@@ -50,12 +72,12 @@ export function applyPolymorphicIR(chunk, options = {}) {
         const args = chunk.code.slice(i + 1, i + 1 + ac);
         const ilen = 1 + ac;
         if (PATCHABLE_OPS.has(op) && rn() < density) {
-            const placeholderOp = 0 /* Op.NOP */;
-            newCode.push(placeholderOp);
+            newCode.push(0 /* Op.NOP */);
             for (let j = 0; j < ac; j++)
                 newCode.push(0);
             patches.push({
-                targetPc: newCode.length - ilen,
+                // Will be fixed up to the real final position once we know preludeLen.
+                finalPc: newCode.length - ilen,
                 realOp: op,
                 realArgs: [...args],
             });
@@ -65,22 +87,54 @@ export function applyPolymorphicIR(chunk, options = {}) {
         }
         i += ilen;
     }
-    const preludeCode = [];
-    for (const patch of patches) {
-        preludeCode.push(5 /* Op.LOAD_L */, patch.targetPc, 0, 0);
-        const tempReg = 0;
-        emitKLoad(preludeCode, tempReg, patch.realOp);
-        preludeCode.push(8 /* Op.STORE_G */, patch.targetPc, 0);
-        for (let ai = 0; ai < patch.realArgs.length; ai++) {
-            emitKLoad(preludeCode, tempReg, patch.realArgs[ai]);
-            preludeCode.push(8 /* Op.STORE_G */, patch.targetPc + 1 + ai, 0);
+    if (patches.length === 0) {
+        if (chunk.protos) {
+            for (const p of chunk.protos)
+                applyPolymorphicIR(p, options);
+        }
+        return chunk;
+    }
+    // Pass 2a: emit the prelude (placeholder target = 0) and record each
+    // STORE_CODE's target-field offset so we can patch it later. We do this in
+    // a fresh code array, then prepend it to newCode in pass 3.
+    const prelude = [];
+    const targetFieldOffsets = [];
+    for (const p of patches) {
+        // Patch the opcode slot.
+        const kIdx = addConst(chunk, p.realOp);
+        const opSlot = prelude.length;
+        prelude.push(57 /* Op.STORE_CODE */, 0, kIdx); // placeholder target = 0
+        targetFieldOffsets.push(opSlot + 1); // target field is at opSlot+1
+        // Patch each arg slot.
+        for (let ai = 0; ai < p.realArgs.length; ai++) {
+            const argKIdx = addConst(chunk, p.realArgs[ai]);
+            const argSlot = prelude.length;
+            prelude.push(57 /* Op.STORE_CODE */, 0, argKIdx);
+            targetFieldOffsets.push(argSlot + 1);
         }
     }
-    chunk.code = [...preludeCode, ...newCode];
+    const preludeLen = prelude.length;
+    // Now fix up the target fields with the real finalPc (preludeLen + relative).
+    for (let pi = 0; pi < patches.length; pi++) {
+        const p = patches[pi];
+        const realPc = preludeLen + p.finalPc;
+        // Patch opcode slot target.
+        prelude[targetFieldOffsets[pi * (1 + p.realArgs.length)]] = realPc;
+        // Patch each arg slot target.
+        for (let ai = 0; ai < p.realArgs.length; ai++) {
+            prelude[targetFieldOffsets[pi * (1 + p.realArgs.length) + 1 + ai]] = realPc + 1 + ai;
+        }
+    }
+    // Pass 3: replace chunk.code with [prelude, ...newCode].
+    // We deliberately drop the original chunk.code contents — they are the
+    // unpatched original, and the runtime will execute the prelude (which
+    // patches newCode in place) and then the newCode.
+    chunk.code = [...prelude, ...newCode];
+    if (chunk.protos) {
+        for (const p of chunk.protos)
+            applyPolymorphicIR(p, options);
+    }
     return chunk;
-}
-function emitKLoad(code, reg, value) {
-    code.push(4 /* Op.PUSH_K */, reg, 0, 0);
 }
 export function generatePolymorphBootstrap(codeArrayName, ipName, regSlotName) {
     const nPatch = rname(4);
