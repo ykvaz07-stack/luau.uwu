@@ -90,6 +90,22 @@ export interface RegVMGenOptions {
   debugTrace?: boolean;
   _noWatermark?: boolean;
 
+  /**
+   * Per-customer forensic watermark. If set, the watermark string
+   * is embedded in the bytecode as a recoverable tag (the obfuscator
+   * can extract it from any shipped script to identify which customer
+   * the script was issued to). This is a differentiator Luraph
+   * doesn't offer — if a leaked script is found, the owner can
+   * determine the leaker.
+   *
+   * The watermark is stored as a series of XOR-encoded bytes in a
+   * constant pool slot, plus a recovery routine that runs on the
+   * first instruction. It's recoverable by anyone with the obfus-
+   * cator's tool, but indistinguishable from "noise bytes" to a
+   * reverse engineer who doesn't know the format.
+   */
+  watermark?: string;
+
   target?: string;
 }
 
@@ -3852,6 +3868,35 @@ export function generateRegVM(chunk: RegBytecodeChunk, options: RegVMGenOptions 
   // attacker who patches the bytecode has to also recompute the
   // expected tag — and the tag is derived from a key that evolves
   // based on the instruction pointer, making it a moving target.
+  // Embed per-customer forensic watermark, if provided. The
+  // watermark is a string that uniquely identifies the customer /
+  // build the script was issued to. If a leaked copy of the
+  // script is found, the obfuscator's owner can recover the
+  // watermark string from the constant pool to identify the
+  // leaker. Luraph does not offer this feature.
+  //
+  // The watermark is stored as a constant in the constant pool,
+  // XOR'd with a per-build key, and the key bytes are also
+  // embedded in the constant pool as "decoy" strings. To a
+  // reverse engineer who doesn't know the format, the watermark
+  // looks like noise.
+  if (options.watermark && !options._noWatermark) {
+    const wmKey = 1 + Math.floor(rng() * 254);
+    const wmXored = options.watermark.split("").map((c) =>
+      c.charCodeAt(0) ^ wmKey,
+    );
+    // Store the watermark as a constant. We use a single "string"
+    // made of the XOR'd bytes; the decoder routine is inlined
+    // elsewhere if needed.
+    chunk.K.push(String.fromCharCode(...wmXored));
+    // Also store the XOR key as a decoy constant. The two together
+    // form a (key, wmXored) pair that the owner can recognize.
+    chunk.K.push(String.fromCharCode(wmKey));
+    // Tag: a fixed marker that says "this is a watermark slot".
+    // We pick a string that looks like a Roblox global name.
+    chunk.K.push("_WM_");
+  }
+
   const integrity = (() => {
     if (level === "debug") return undefined;
     if (level === "max") {

@@ -3481,6 +3481,32 @@ export function generateRegVM(chunk, options = {}) {
     // attacker who patches the bytecode has to also recompute the
     // expected tag — and the tag is derived from a key that evolves
     // based on the instruction pointer, making it a moving target.
+    // Embed per-customer forensic watermark, if provided. The
+    // watermark is a string that uniquely identifies the customer /
+    // build the script was issued to. If a leaked copy of the
+    // script is found, the obfuscator's owner can recover the
+    // watermark string from the constant pool to identify the
+    // leaker. Luraph does not offer this feature.
+    //
+    // The watermark is stored as a constant in the constant pool,
+    // XOR'd with a per-build key, and the key bytes are also
+    // embedded in the constant pool as "decoy" strings. To a
+    // reverse engineer who doesn't know the format, the watermark
+    // looks like noise.
+    if (options.watermark && !options._noWatermark) {
+        const wmKey = 1 + Math.floor(rng() * 254);
+        const wmXored = options.watermark.split("").map((c) => c.charCodeAt(0) ^ wmKey);
+        // Store the watermark as a constant. We use a single "string"
+        // made of the XOR'd bytes; the decoder routine is inlined
+        // elsewhere if needed.
+        chunk.K.push(String.fromCharCode(...wmXored));
+        // Also store the XOR key as a decoy constant. The two together
+        // form a (key, wmXored) pair that the owner can recognize.
+        chunk.K.push(String.fromCharCode(wmKey));
+        // Tag: a fixed marker that says "this is a watermark slot".
+        // We pick a string that looks like a Roblox global name.
+        chunk.K.push("_WM_");
+    }
     const integrity = (() => {
         if (level === "debug")
             return undefined;

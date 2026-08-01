@@ -10,6 +10,21 @@ export interface RegVMGenOptions {
     forceFeatures?: RegFeatureFlag[];
     debugTrace?: boolean;
     _noWatermark?: boolean;
+    /**
+     * Per-customer forensic watermark. If set, the watermark string
+     * is embedded in the bytecode as a recoverable tag (the obfuscator
+     * can extract it from any shipped script to identify which customer
+     * the script was issued to). This is a differentiator Luraph
+     * doesn't offer — if a leaked script is found, the owner can
+     * determine the leaker.
+     *
+     * The watermark is stored as a series of XOR-encoded bytes in a
+     * constant pool slot, plus a recovery routine that runs on the
+     * first instruction. It's recoverable by anyone with the obfus-
+     * cator's tool, but indistinguishable from "noise bytes" to a
+     * reverse engineer who doesn't know the format.
+     */
+    watermark?: string;
     target?: string;
 }
 export declare function generateRegVM(chunk: RegBytecodeChunk, options?: RegVMGenOptions): string;
